@@ -1,0 +1,7 @@
+.idea/
+.settings
+.cache
+.project
+.buildpath
+.externalToolBuilders
+nbproject
