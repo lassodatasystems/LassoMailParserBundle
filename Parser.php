@@ -3,6 +3,11 @@ namespace Lasso\MailParserBundle;
 
 use Zend\Mail\Storage\Part;
 
+
+/**
+ * Provides a very simple wrapper around the zend mail library. Contains assorted helper functions regarding mail
+ * processing.
+ */
 class Parser
 {
     /**
