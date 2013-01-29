@@ -10,6 +10,12 @@
     "require": {
         "zendframework/zend-mail": ">=2.0.0"
     },
+    "repositories": [
+        {
+            "type": "composer",
+            "url": "https://packages.zendframework.com/"
+        }
+    ],
     "autoload": {
         "psr-0": { "Lasso\\MailParserBundle": "" }
     },
