@@ -1,6 +1,8 @@
 <?php
 namespace Lasso\MailParserBundle;
 
+use Zend\Mail\Storage\Part;
+
 class Parser
 {
     /**
