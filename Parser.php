@@ -54,9 +54,21 @@ class Parser
             throw new \LogicException('You must first call $this->parse()');
         }
 
+        $getAddresses = function($field, $mail) {
+            $addresses = [];
+            try {
+                foreach ($mail->getHeader($field)->getAddressList() as $address) {
+                    $addresses[] = $address->getEmail();
+                }
+            } catch (\Exception $e) {
+            }
+
+            return $addresses;
+        };
+
         $addresses = [];
-        foreach ($this->mail->getHeader('to')->getAddressList() as $address) {
-            $addresses[] = $address->getEmail();
+        foreach (['to', 'from', 'cc', 'bcc'] as $field) {
+            $addresses = array_merge($addresses, $getAddresses($field, $this->mail));
         }
 
         $addresses = array_unique($addresses);
