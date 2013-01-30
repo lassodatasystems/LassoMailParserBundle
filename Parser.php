@@ -48,7 +48,7 @@ class Parser
      * @return array
      * @throws \LogicException
      */
-    public function getAllEmailAddresses()
+    public function getAllEmailAddresses($fields = ['to', 'from', 'cc', 'bcc'])
     {
         if (empty($this->mail)) {
             throw new \LogicException('You must first call $this->parse()');
@@ -67,7 +67,7 @@ class Parser
         };
 
         $addresses = [];
-        foreach (['to', 'from', 'cc', 'bcc'] as $field) {
+        foreach ($fields as $field) {
             $addresses = array_merge($addresses, $getAddresses($field, $this->mail));
         }
 
