@@ -3,7 +3,6 @@ namespace Lasso\MailParserBundle;
 
 use Zend\Mail\Storage\Part;
 
-
 /**
  * Provides a very simple wrapper around the zend mail library. Contains assorted helper functions regarding mail
  * processing.
@@ -15,6 +14,13 @@ class Parser
      */
     protected $mail = null;
 
+    protected $partFactory;
+
+    public function __construct(PartFactory $partFactory)
+    {
+        $this->partFactory = $partFactory;
+    }
+
     /**
      * Accepts the raw email as a string, including headers and body. Has to be called before the other functions
      * are available.
@@ -23,7 +29,7 @@ class Parser
      */
     public function parse($mail)
     {
-        $this->mail = new Part(['raw' => $mail]);
+        $this->mail = $this->partFactory->getPart($mail);
     }
 
     /**

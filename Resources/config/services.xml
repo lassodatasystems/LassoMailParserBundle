@@ -6,10 +6,15 @@
 
     <parameters>
         <parameter key="lasso_mail_parser.parser.class">Lasso\MailParserBundle\Parser</parameter>
+        <parameter key="lasso_mail_parser.part_factory.class">Lasso\MailParserBundle\PartFactory</parameter>
     </parameters>
     <services>
         <service id="lasso_mail_parser.parser"
                  class="%lasso_mail_parser.parser.class%">
+            <argument type="service" id="lasso_mail_parser.part_factory"/>
+        </service>
+        <service id="lasso_mail_parser.part_factory"
+                 class="%lasso_mail_parser.part_factory.class%">
         </service>
     </services>
 </container>
