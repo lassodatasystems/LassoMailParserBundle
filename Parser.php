@@ -81,4 +81,55 @@ class Parser
 
         return $addresses;
     }
+
+    /**
+     * @param Part $part
+     *
+     * @return array
+     */
+    protected function flattenParts(Part $part)
+    {
+        $parts = [];
+        for ($i = 1; $i <= $part->countParts(); ++$i) {
+            $newPart = $part->getPart($i);
+
+            if ($newPart->isMultipart()) {
+                $parts = array_merge($parts, $this->flattenParts($newPart));
+            } else {
+                $parts[] = $newPart;
+            }
+        }
+
+        return $parts;
+    }
+
+    public function getPrimaryContent()
+    {
+        $parts = $this->flattenParts($this->getMail());
+
+        $textContent = null;
+        $htmlContent = null;
+
+        foreach ($parts as $part) {
+            $contentType = $part
+                ->getHeader('Content-Type')
+                ->getType();
+            if ($contentType == 'text/plain') {
+                $textContent = $part->getContent();
+            }
+            if ($contentType == 'text/html') {
+                $htmlContent = $part->getContent();
+            }
+        }
+
+        if (!empty($htmlContent)) {
+            return trim($htmlContent);
+        }
+
+        if (!empty($textContent)) {
+            return trim($textContent);
+        }
+
+        return null;
+    }
 }

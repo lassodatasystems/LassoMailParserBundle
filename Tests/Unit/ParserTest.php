@@ -129,4 +129,89 @@ MAIL;
             $this->assertContains($address, $addressesFromEmail);
         }
     }
+
+    /**
+     * The html content is preferred with text body as a fallback.
+     * The file should always be ignored.
+     *
+     * @test
+     */
+    public function extractHtmlContentFromMultiPartEmail()
+    {
+        $mailBody = <<<MAIL
+MIME-Version: 1.0
+Date: Tue, 19 Mar 2013 11:32:22 -0700
+Subject: This is the subject line
+From: a@example.com
+To: b@example.com
+Content-Type: multipart/mixed; boundary=047d7bb03b8e84404004d84b538e
+
+--047d7bb03b8e84404004d84b538e
+Content-Type: multipart/alternative; boundary=047d7bb03b8e84403b04d84b538c
+
+--047d7bb03b8e84403b04d84b538c
+Content-Type: text/plain; charset=ISO-8859-1
+
+This is the text body* with styling*
+
+--047d7bb03b8e84403b04d84b538c
+Content-Type: text/html; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+<div>This is the html body<b>with styling</b></div>
+
+--047d7bb03b8e84403b04d84b538c--
+--047d7bb03b8e84404004d84b538e
+Content-Type: application/x-font-ttf; name="example.bin"
+Content-Disposition: attachment; filename="example.bin"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_hehegkyx0
+
+AAEAAAAPADAAAwDAT1MvMlFBXLsAAYF0AAAAVlBDTFRLxMEKAAGBzAAAADZjbWFwXFxQcgABdkQA
+--047d7bb03b8e84404004d84b538e--
+MAIL;
+        $parser = $this->getParser(new PartFactory());
+        $parser->parse($mailBody);
+
+        $content = $parser->getPrimaryContent();
+        $this->assertEquals('<div>This is the html body<b>with styling</b></div>', $content);
+    }
+
+    /**
+     * @test
+     */
+    public function primaryBodyFromMultiPartEmail()
+    {
+        $mailBody = <<<MAIL
+MIME-Version: 1.0
+Date: Tue, 19 Mar 2013 11:32:22 -0700
+Subject: This is the subject line
+From: a@example.com
+To: b@example.com
+Content-Type: multipart/mixed; boundary=047d7bb03b8e84404004d84b538e
+
+--047d7bb03b8e84404004d84b538e
+Content-Type: multipart/alternative; boundary=047d7bb03b8e84403b04d84b538c
+
+--047d7bb03b8e84403b04d84b538c
+Content-Type: text/plain; charset=ISO-8859-1
+
+This is the text body* with styling*
+
+--047d7bb03b8e84403b04d84b538c--
+--047d7bb03b8e84404004d84b538e
+Content-Type: application/x-font-ttf; name="example.bin"
+Content-Disposition: attachment; filename="example.bin"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_hehegkyx0
+
+AAEAAAAPADAAAwDAT1MvMlFBXLsAAYF0AAAAVlBDTFRLxMEKAAGBzAAAADZjbWFwXFxQcgABdkQA
+--047d7bb03b8e84404004d84b538e--
+MAIL;
+        $parser = $this->getParser(new PartFactory());
+        $parser->parse($mailBody);
+
+        $content = $parser->getPrimaryContent();
+        $this->assertEquals('This is the text body* with styling*', $content);
+    }
 }
