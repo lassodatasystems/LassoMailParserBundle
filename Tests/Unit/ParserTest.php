@@ -214,4 +214,51 @@ MAIL;
         $content = $parser->getPrimaryContent();
         $this->assertEquals('This is the text body* with styling*', $content);
     }
+
+    /**
+     * @test
+     */
+    public function fileAttachmentsAreIgnoredOnMailsWithNoTextOrHtmlBody()
+    {
+        $mailBody = <<<MAIL
+MIME-Version: 1.0
+Date: Tue, 19 Mar 2013 11:32:22 -0700
+Subject: This is the subject line
+From: a@example.com
+To: b@example.com
+Content-Type: application/x-font-ttf; name="example.bin"
+Content-Disposition: attachment; filename="example.bin"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_hehegkyx0
+
+AAEAAAAPADAAAwDAT1MvMlFBXLsAAYF0AAAAVlBDTFRLxMEKAAGBzAAAADZjbWFwXFxQcgABdkQA
+MAIL;
+        $parser = $this->getParser(new PartFactory());
+        $parser->parse($mailBody);
+
+        $content = $parser->getPrimaryContent();
+        $this->assertEquals(null, $content);
+    }
+
+    /**
+     * @test
+     */
+    public function extractPlainTextFromNonMultiPartMessage()
+    {
+        $mailBody = <<<MAIL
+MIME-Version: 1.0
+Date: Tue, 19 Mar 2013 11:32:22 -0700
+Subject: This is the subject line
+From: a@example.com
+To: b@example.com
+Content-Type: text/plain; charset=ISO-8859-1
+
+This is the text body* with styling*
+MAIL;
+        $parser = $this->getParser(new PartFactory());
+        $parser->parse($mailBody);
+
+        $content = $parser->getPrimaryContent();
+        $this->assertEquals('This is the text body* with styling*', $content);
+    }
 }

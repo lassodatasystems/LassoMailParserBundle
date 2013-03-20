@@ -105,20 +105,29 @@ class Parser
 
     public function getPrimaryContent()
     {
-        $parts = $this->flattenParts($this->getMail());
+        if ($this->getMail()->isMultipart()) {
+            $parts = $this->flattenParts($this->getMail());
 
-        $textContent = null;
-        $htmlContent = null;
+            $textContent = null;
+            $htmlContent = null;
 
-        foreach ($parts as $part) {
-            $contentType = $part
-                ->getHeader('Content-Type')
-                ->getType();
-            if ($contentType == 'text/plain') {
-                $textContent = $part->getContent();
+            foreach ($parts as $part) {
+                $contentType = $part
+                    ->getHeader('Content-Type')
+                    ->getType();
+                if ($contentType == 'text/plain') {
+                    $textContent = $part->getContent();
+                }
+                if ($contentType == 'text/html') {
+                    $htmlContent = $part->getContent();
+                }
             }
-            if ($contentType == 'text/html') {
-                $htmlContent = $part->getContent();
+        } else {
+            if ($this->getMail()->getHeader('Content-Type')->getType() == 'text/plain') {
+                $textContent = $this->getMail()->getContent();
+            }
+            if ($this->getMail()->getHeader('Content-Type')->getType() == 'text/html') {
+                $htmlContent = $this->getMail()->getContent();
             }
         }
 
