@@ -110,7 +110,12 @@ class Parser
     {
         $content = '';
 
-        switch (strtolower($part->getHeader('Content-Transfer-Encoding'))) {
+        $contentTransferEncoding = '7-bit';
+        if (isset($part->content_transfer_encoding)) {
+            $contentTransferEncoding = $part->content_transfer_encoding;
+        }
+
+        switch ($contentTransferEncoding) {
             case 'base64':
                 $content = base64_decode($part->getContent());
                 break;
