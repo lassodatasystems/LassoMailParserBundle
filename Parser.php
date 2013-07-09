@@ -85,7 +85,7 @@ class Parser
     /**
      * @param Part $part
      *
-     * @return array
+     * @return Part[]
      */
     protected function flattenParts(Part $part)
     {
@@ -103,6 +103,35 @@ class Parser
         return $parts;
     }
 
+    /**
+     * @param Part $message
+     */
+    private function decodeBody(Part $part)
+    {
+        $content = '';
+
+        $contentTransferEncoding = '7-bit';
+        if (isset($part->content_transfer_encoding)) {
+            $contentTransferEncoding = $part->content_transfer_encoding;
+        }
+
+        switch ($contentTransferEncoding) {
+            case 'base64':
+                $content = base64_decode($part->getContent());
+                break;
+
+            case 'quoted-printable':
+                $content = quoted_printable_decode($part->getContent());
+                break;
+
+            default:
+                $content = $part->getContent();
+                break;
+        }
+
+        return $content;
+    }
+
     public function getPrimaryContent()
     {
         if ($this->getMail()->isMultipart()) {
@@ -116,18 +145,18 @@ class Parser
                     ->getHeader('Content-Type')
                     ->getType();
                 if ($contentType == 'text/plain') {
-                    $textContent = $part->getContent();
+                    $textContent = $this->decodeBody($part);
                 }
                 if ($contentType == 'text/html') {
-                    $htmlContent = $part->getContent();
+                    $htmlContent = $this->decodeBody($part);
                 }
             }
         } else {
             if ($this->getMail()->getHeader('Content-Type')->getType() == 'text/plain') {
-                $textContent = $this->getMail()->getContent();
+                $textContent = $this->decodeBody($this->getMail());
             }
             if ($this->getMail()->getHeader('Content-Type')->getType() == 'text/html') {
-                $htmlContent = $this->getMail()->getContent();
+                $htmlContent = $this->decodeBody($this->getMail());
             }
         }
 
