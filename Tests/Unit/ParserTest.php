@@ -1,4 +1,23 @@
 <?php
+/*
+ * Copyright 2013 Lasso Data Systems
+ *
+ * This file is part of LassoMailParser.
+ *
+ * LassoMailParser is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * LassoMailParser is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with LassoMailParser. If not, see <http://www.gnu.org/licenses/>.
+ *
+ */
 namespace Lasso\MailParserBundle\Tests\Unit;
 
 use Lasso\MailParserBundle\PartFactory;
@@ -238,6 +257,103 @@ MAIL;
 
         $content = $parser->getPrimaryContent();
         $this->assertEquals(null, $content);
+    }
+
+    protected function makeGlue()
+    {
+        return function($contentType) {
+            if ($contentType == 'text/html') {
+                return '<hr />';
+            } else {
+                return "\n=====\n";
+            }
+        };
+    }
+
+    /**
+     * @test
+     */
+    public function combineMultipartHtmlIntoContent()
+    {
+        $parts = [
+            '<div id="first">first-part</div>',
+            '<div id="second">second-part</div>'
+        ];
+
+        $mailBody = <<<MAIL
+From: bjames.mylasso@gmail.com
+Content-Type: multipart/alternative; boundary="test-boundary"
+Subject: Mail list Page
+Message-Id: <74111298-6423-2943-9875-39906A7EA733@example.com>
+Date: Thu, 2 May 2013 12:31:20 +0200
+To: cory.cutterson@test.com, jane.crazy@example.com
+Mime-Version: 1.0 (Mac OS X Mail 6.3 \(1503\))
+X-Mailer: Apple Mail (2.1503)
+
+
+--test-boundary
+Content-Transfer-Encoding: 7bit
+Content-Type: text/html
+
+{$parts[0]}
+
+--test-boundary
+Content-Transfer-Encoding: 7bit
+Content-Type: text/html
+
+{$parts[1]}
+
+--test-boundary--
+
+MAIL;
+        $parser = $this->getParser(new PartFactory());
+        $parser->parse($mailBody);
+        $content = $parser->getPrimaryContent($this->makeGlue());
+
+        $this->assertEquals($parts[0] . '<hr />' . $parts[1], $content);
+    }
+
+    /**
+     * @test
+     */
+    public function combineMultipartTextIntoContent()
+    {
+        $parts = [
+            'first-part',
+            'second-part'
+        ];
+
+        $mailBody = <<<MAIL
+From: bjames.mylasso@gmail.com
+Content-Type: multipart/alternative; boundary="test-boundary"
+Subject: Mail list Page
+Message-Id: <74111298-6423-2943-9875-39906A7EA733@example.com>
+Date: Thu, 2 May 2013 12:31:20 +0200
+To: cory.cutterson@test.com, jane.crazy@example.com
+Mime-Version: 1.0 (Mac OS X Mail 6.3 \(1503\))
+X-Mailer: Apple Mail (2.1503)
+
+
+--test-boundary
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain
+
+{$parts[0]}
+
+--test-boundary
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain
+
+{$parts[1]}
+
+--test-boundary--
+
+MAIL;
+        $parser = $this->getParser(new PartFactory());
+        $parser->parse($mailBody);
+        $content = $parser->getPrimaryContent($this->makeGlue());
+
+        $this->assertEquals($parts[0] . "\n=====\n" . $parts[1], $content);
     }
 
     /**
