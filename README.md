@@ -38,13 +38,13 @@ Once you have a parser instance, parse the raw email source like this:
 
 You can then use
 
-    $parser->getAllEmailAddresses();
+    $emailAddresses = $parser->getAllEmailAddresses();
 
 to extract email address from the email. You can restrict the fields used for extraction by passing in an
-array with the field names you with to use:
+array with the field names you wish to use:
 
     // Only retrieve recipients
-    $parser->getAllEmailAddress(['to', 'cc', 'bcc']);
+    $receiverEmailAddresses = $parser->getAllEmailAddress(['to', 'cc', 'bcc']);
 
 Use
 
@@ -67,5 +67,5 @@ a custom glue function:
 
     $content = $parser->getPrimaryContent($glue);
 
-Now all html parts will be concatenated with '<hr />' tags, and all text parts will be concatenated with
+Now all html parts will be concatenated with hr-tags, and all text parts will be concatenated with
 newlines and '===='.
