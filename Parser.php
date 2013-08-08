@@ -1,6 +1,7 @@
 <?php
 namespace Lasso\MailParserBundle;
 
+use LogicException;
 use Zend\Mail\Storage\Part;
 
 /**
@@ -41,7 +42,7 @@ class Parser
     public function getMail()
     {
         if (empty($this->mail)) {
-            throw new \LogicException('You must first call $this->parse()');
+            throw new LogicException('You must first call $this->parse()');
         }
 
         return $this->mail;
@@ -57,7 +58,7 @@ class Parser
     public function getAllEmailAddresses($fields = ['to', 'from', 'cc', 'bcc'])
     {
         if (empty($this->mail)) {
-            throw new \LogicException('You must first call $this->parse()');
+            throw new LogicException('You must first call $this->parse()');
         }
 
         $getAddresses = function($field, $mail) {
@@ -94,6 +95,10 @@ class Parser
             $newPart = $part->getPart($i);
 
             if ($newPart->isMultipart()) {
+                $parts = array_merge($parts, $this->flattenParts($newPart));
+            } elseif ($newPart->getHeaders()->has('Content-Type') && $newPart->getHeaders()->get('Content-Type')->getType() == 'message/rfc822') {
+                $newPart = $this->partFactory->getPart($newPart->getContent());
+
                 $parts = array_merge($parts, $this->flattenParts($newPart));
             } else {
                 $parts[] = $newPart;

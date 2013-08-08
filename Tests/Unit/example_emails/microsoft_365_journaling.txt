@@ -1,0 +1,49 @@
+Received: from localhost (localhost [127.0.0.1])
+	by mail.mylasso.com (Postfix) with ESMTP id 2A20E42E43
+	for <root@example.com>; Thu,  8 Aug 2013 15:13:07 -0700 (PDT)
+Content-Type: multipart/mixed;
+	boundary="_cb7af08e-61fa-49b1-bbe7-7119b3016213_"
+Subject: DailyUpdate: Test this
+To: <spring@example.com>
+From: "Someone" <someone@example.com>
+MIME-Version: 1.0
+Sender:
+	<weird_microsoft_server@example.com>
+Message-ID: <50-f4k3@example.com>
+Date: Mon, 25 Feb 2012 23:01:45 +0000
+
+--_cb7af08e-61fa-49b1-bbe7-7119b3016213_
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+
+Sender: someone@example.com
+Subject: DailyUpdate: Test this
+Message-Id: <message-at-original-server@example.com>
+Recipient: spring@example.com
+
+--_cb7af08e-61fa-49b1-bbe7-7119b3016213_
+Content-Type: message/rfc822
+
+From: "Someone" <someone@example.com>
+To: <spring@example.com>
+Subject: DailyUpdate: Test this
+Reply-To: <someone@example.com>
+Content-Type: multipart/alternative;
+	boundary="_7398a609-8499-4804-8a36-ceb8d41d3c21_"
+MIME-Version: 1.0
+Message-ID: <message-at-original-server@example.com>
+Date: Mon, 25 Feb 2012 23:01:45 +0000
+
+--_7398a609-8499-4804-8a36-ceb8d41d3c21_
+Content-Type: text/plain; charset="utf-8"
+
+plain text content
+
+--_7398a609-8499-4804-8a36-ceb8d41d3c21_
+Content-Type: text/html; charset="utf-8"
+
+<span>full html</span>
+
+--_7398a609-8499-4804-8a36-ceb8d41d3c21_--
+
+--_cb7af08e-61fa-49b1-bbe7-7119b3016213_--

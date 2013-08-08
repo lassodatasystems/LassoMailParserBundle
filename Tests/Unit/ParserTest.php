@@ -257,8 +257,8 @@ This is the text body* with styling*
 MAIL;
         $parser = $this->getParser(new PartFactory());
         $parser->parse($mailBody);
-
         $content = $parser->getPrimaryContent();
+
         $this->assertEquals('This is the text body* with styling*', $content);
     }
 
@@ -271,9 +271,22 @@ MAIL;
 
         $parser = $this->getParser(new PartFactory());
         $parser->parse($mailBody);
-
         $content = $parser->getPrimaryContent();
 
         $this->assertEquals('<html><head><meta http-equiv="Content-Type" content="text/html charset=us-ascii"></head><body style="word-wrap: break-word; -webkit-nbsp-mode: space; -webkit-line-break: after-white-space; ">simple html test</body></html>', $content);
+    }
+
+    /**
+     * @test
+     */
+    public function exchangeJournalingMailsShouldBeParsedCorrectly()
+    {
+        $mailBody = file_get_contents(__DIR__ . '/example_emails/microsoft_365_journaling.txt');
+
+        $parser = $this->getParser(new PartFactory());
+        $parser->parse($mailBody);
+        $content = $parser->getPrimaryContent();
+
+        $this->assertEquals('<span>full html</span>', $content);
     }
 }
