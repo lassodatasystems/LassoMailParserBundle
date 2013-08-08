@@ -19,10 +19,5 @@
     "autoload": {
         "psr-0": { "Lasso\\MailParserBundle": "" }
     },
-    "target-dir": "Lasso/MailParserBundle",
-    "extra": {
-        "branch-alias": {
-            "dev-master": "0.2-dev"
-        }
-    }
+    "target-dir": "Lasso/MailParserBundle"
 }

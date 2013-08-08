@@ -1,4 +1,23 @@
 <?php
+/*
+ * Copyright 2013 Lasso Data Systems
+ *
+ * This file is part of LassoMailParser.
+ *
+ * LassoMailParser is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * LassoMailParser is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with LassoMailParser. If not, see <http://www.gnu.org/licenses/>.
+ *
+ */
 namespace Lasso\MailParserBundle;
 
 use LogicException;
@@ -134,43 +153,93 @@ class Parser
                 break;
         }
 
-        return $content;
+        return trim($content);
     }
 
-    public function getPrimaryContent()
+    /**
+     * Concatenates all the parts of an email. Will concatenate
+     * html if there were html parts, else the text parts
+     * are concatenated. Will not return any other parts (such as file attachments).
+     *
+     * The callable $glue, if given, will be called when
+     * concatenating parts like this:
+     *
+     * $partOne . $glue($contentType) . $partTwo
+     *
+     * $glue needs to return a string. Using a functions allows to
+     * return different values for different content types, e.g. <hr />
+     * for html content.
+     *
+     * The content type of the parts will be passed in, like "text/html"
+     * or "text/plain".
+     *
+     * @param callable $glue
+     *
+     * @return null|string
+     */
+    public function getPrimaryContent(Callable $glue = null)
     {
+        /*
+         * Simple no-op function. No if-statements necessary later.
+         */
+        if (empty($glue)) {
+            $glue = function() { return ''; };
+        }
+
         if ($this->getMail()->isMultipart()) {
             $parts = $this->flattenParts($this->getMail());
-
-            $textContent = null;
-            $htmlContent = null;
-
-            foreach ($parts as $part) {
-                $contentType = $part
-                    ->getHeader('Content-Type')
-                    ->getType();
-                if ($contentType == 'text/plain') {
-                    $textContent = $this->decodeBody($part);
-                }
-                if ($contentType == 'text/html') {
-                    $htmlContent = $this->decodeBody($part);
-                }
-            }
         } else {
-            if ($this->getMail()->getHeader('Content-Type')->getType() == 'text/plain') {
-                $textContent = $this->decodeBody($this->getMail());
+            $parts = [$this->getMail()];
+        }
+
+        $textContent = [];
+        $htmlContent = [];
+
+        foreach ($parts as $part) {
+            $contentType = 'text/plain';
+            if ($part->getHeaders()->has('Content-Type')) {
+                $contentType = $part->getHeader('Content-Type')
+                    ->getType();
             }
-            if ($this->getMail()->getHeader('Content-Type')->getType() == 'text/html') {
-                $htmlContent = $this->decodeBody($this->getMail());
+
+            if ($contentType == 'text/plain') {
+                $textContent[] = $this->decodeBody($part);
+            }
+            if ($contentType == 'text/html') {
+                $htmlContent[] = $this->decodeBody($part);
             }
         }
 
+        /**
+         * Takes an array of parts and combines them with the glue
+         * function. With a foreach loop, there's a need to track
+         * whether the current part is the last part so $glue isn't
+         * called after the last part.
+         *
+         * Using array_reduce() makes the last-part-tracking unnecessary.
+         *
+         * @param $parts
+         * @param $contentType
+         *
+         * @return mixed
+         */
+        $combineParts = function($parts, $contentType) use ($glue) {
+            $first = array_shift($parts);
+            return array_reduce(
+                $parts,
+                function($soFar, $part) use ($glue, $contentType) {
+                    return $soFar . $glue($contentType) . $part;
+                },
+                $first
+            );
+        };
+
         if (!empty($htmlContent)) {
-            return trim($htmlContent);
+            return $combineParts($htmlContent, 'text/html');
         }
 
         if (!empty($textContent)) {
-            return trim($textContent);
+            return $combineParts($textContent, 'text/plain');
         }
 
         return null;
