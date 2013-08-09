@@ -405,4 +405,20 @@ MAIL;
 
         $this->assertEquals('<span>full html</span>', $content);
     }
+
+    /**
+     * @test
+     */
+    public function extractEmailAddressesFromEnvelopedEmails()
+    {
+        $mailBody = file_get_contents(__DIR__ . '/example_emails/microsoft_365_journaling.txt');
+
+        $parser = $this->getParser(new PartFactory());
+        $parser->parse($mailBody);
+        $emails = $parser->getAllEmailAddresses();
+
+        sort($emails);
+
+        $this->assertEquals(['someone@example.com', 'spring@example.com', 'springs_colleague@example.com'], $emails);
+    }
 }

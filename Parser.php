@@ -20,7 +20,9 @@
  */
 namespace Lasso\MailParserBundle;
 
+use Exception;
 use LogicException;
+use Zend\Mail\Header\AbstractAddressList;
 use Zend\Mail\Storage\Part;
 
 /**
@@ -34,8 +36,14 @@ class Parser
      */
     protected $mail = null;
 
+    /**
+     * @var PartFactory
+     */
     protected $partFactory;
 
+    /**
+     * @param PartFactory $partFactory
+     */
     public function __construct(PartFactory $partFactory)
     {
         $this->partFactory = $partFactory;
@@ -68,6 +76,32 @@ class Parser
     }
 
     /**
+     * Retrieves the addresses from a specific field in a part
+     *
+     * @param string $field
+     * @param Part   $part
+     */
+    protected function getAddressesFromFieldInPart($field, Part $part)
+    {
+        $addresses = [];
+
+        if (!$part->getHeaders()->has($field)) {
+            return $addresses;
+        }
+
+        $addressList = $part->getHeader($field);
+        if (!$addressList instanceof AbstractAddressList) {
+            return $addresses;
+        }
+
+        foreach ($addressList->getAddressList() as $address) {
+            $addresses[] = $address->getEmail();
+        }
+
+        return $addresses;
+    }
+
+    /**
      * Returns all email addresses contained in the email headers. This includes, to, from, cc, and bcc.
      * $this->parse() has to be called before this function is available.
      *
@@ -80,21 +114,13 @@ class Parser
             throw new LogicException('You must first call $this->parse()');
         }
 
-        $getAddresses = function($field, $mail) {
-            $addresses = [];
-            try {
-                foreach ($mail->getHeader($field)->getAddressList() as $address) {
-                    $addresses[] = $address->getEmail();
-                }
-            } catch (\Exception $e) {
-            }
-
-            return $addresses;
-        };
+        $parts = array_merge([$this->mail], $this->flattenParts($this->mail));
 
         $addresses = [];
         foreach ($fields as $field) {
-            $addresses = array_merge($addresses, $getAddresses($field, $this->mail));
+            foreach ($parts as $part) {
+                $addresses = array_merge($addresses, $this->getAddressesFromFieldInPart($field, $part));
+            }
         }
 
         $addresses = array_unique($addresses);
@@ -117,6 +143,8 @@ class Parser
                 $parts = array_merge($parts, $this->flattenParts($newPart));
             } elseif ($newPart->getHeaders()->has('Content-Type') && $newPart->getHeaders()->get('Content-Type')->getType() == 'message/rfc822') {
                 $newPart = $this->partFactory->getPart($newPart->getContent());
+
+                $parts[] = $newPart;
 
                 $parts = array_merge($parts, $this->flattenParts($newPart));
             } else {
@@ -183,7 +211,9 @@ class Parser
          * Simple no-op function. No if-statements necessary later.
          */
         if (empty($glue)) {
-            $glue = function() { return ''; };
+            $glue = function () {
+                return '';
+            };
         }
 
         if ($this->getMail()->isMultipart()) {
@@ -223,11 +253,12 @@ class Parser
          *
          * @return mixed
          */
-        $combineParts = function($parts, $contentType) use ($glue) {
+        $combineParts = function ($parts, $contentType) use ($glue) {
             $first = array_shift($parts);
+
             return array_reduce(
                 $parts,
-                function($soFar, $part) use ($glue, $contentType) {
+                function ($soFar, $part) use ($glue, $contentType) {
                     return $soFar . $glue($contentType) . $part;
                 },
                 $first

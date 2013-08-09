@@ -26,6 +26,7 @@ Content-Type: message/rfc822
 
 From: "Someone" <someone@example.com>
 To: <spring@example.com>
+CC: <springs_colleague@example.com>
 Subject: DailyUpdate: Test this
 Reply-To: <someone@example.com>
 Content-Type: multipart/alternative;
