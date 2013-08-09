@@ -63,7 +63,7 @@ class Parser
     /**
      * Returns the mail object. $this->parse() has to be called before this function is available.
      *
-     * @return null|\Zend\Mail\Storage\Part
+     * @return null|Part
      * @throws LogicException
      */
     public function getMail()
