@@ -10,7 +10,7 @@ MIME-Version: 1.0
 Sender:
 	<weird_microsoft_server@example.com>
 Message-ID: <50-f4k3@example.com>
-Date: Mon, 25 Feb 2012 23:01:45 +0000
+Date: Mon, 25 Feb 2012 1:28:23 +0000
 
 --_cb7af08e-61fa-49b1-bbe7-7119b3016213_
 Content-Type: text/plain; charset="us-ascii"
@@ -33,7 +33,7 @@ Content-Type: multipart/alternative;
 	boundary="_7398a609-8499-4804-8a36-ceb8d41d3c21_"
 MIME-Version: 1.0
 Message-ID: <message-at-original-server@example.com>
-Date: Mon, 25 Feb 2012 23:01:45 +0000
+Date: Mon, 12 Feb 2012 23:01:45 +0000
 
 --_7398a609-8499-4804-8a36-ceb8d41d3c21_
 Content-Type: text/plain; charset="utf-8"
