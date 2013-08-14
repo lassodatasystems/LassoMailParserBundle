@@ -72,13 +72,6 @@ class Parser
         $this->mail = $this->partFactory->getPart($mail);
 
         $this->parts = $this->flattenParts($this->mail);
-
-        foreach ($this->parts as $part) {
-            /** @var $part Part */
-            if ($this->isEnvelopedEmail($part)) {
-                $this->envelopedEmail = $part;
-            }
-        }
     }
 
     /**
