@@ -37,9 +37,21 @@ class Parser
     protected $mail = null;
 
     /**
+     * Linear array of all parts in the email. The parts of enveloped emails will also be in here
+     *
+     * @var Part[]
+     */
+    protected $parts = [];
+
+    /**
      * @var PartFactory
      */
     protected $partFactory;
+
+    /**
+     * @var Part
+     */
+    protected $envelopedEmail;
 
     /**
      * @param PartFactory $partFactory
@@ -58,6 +70,15 @@ class Parser
     public function parse($mail)
     {
         $this->mail = $this->partFactory->getPart($mail);
+
+        $this->parts = $this->flattenParts($this->mail);
+
+        foreach ($this->parts as $part) {
+            /** @var $part Part */
+            if ($this->isEnvelopedEmail($part)) {
+                $this->envelopedEmail = $part;
+            }
+        }
     }
 
     /**
@@ -114,7 +135,7 @@ class Parser
             throw new LogicException('You must first call $this->parse()');
         }
 
-        $parts = array_merge([$this->mail], $this->flattenParts($this->mail));
+        $parts = array_merge([$this->mail], $this->parts);
 
         $addresses = [];
         foreach ($fields as $field) {
@@ -126,6 +147,37 @@ class Parser
         $addresses = array_unique($addresses);
 
         return $addresses;
+    }
+
+    /**
+     * If the email contained an enveloped email, this method will provide the enveloped email. It can
+     * then be used to extract information about the original exchange.
+     *
+     * @return Part
+     */
+    public function getEnvelopedEmail()
+    {
+        return $this->envelopedEmail;
+    }
+
+    /**
+     * Check whether an enveloped email was found
+     *
+     * @return bool
+     */
+    public function hasEnvelopedEmail()
+    {
+        return !empty($this->envelopedEmail);
+    }
+
+    /**
+     * @param Part $part
+     *
+     * @return bool
+     */
+    protected function isEnvelopedEmail(Part $part) {
+        return $part->getHeaders()->has('Content-Type')
+            && $part->getHeaders()->get('Content-Type')->getType() == 'message/rfc822';
     }
 
     /**
@@ -141,8 +193,20 @@ class Parser
 
             if ($newPart->isMultipart()) {
                 $parts = array_merge($parts, $this->flattenParts($newPart));
-            } elseif ($newPart->getHeaders()->has('Content-Type') && $newPart->getHeaders()->get('Content-Type')->getType() == 'message/rfc822') {
+            } elseif ($this->isEnvelopedEmail($newPart)) {
                 $newPart = $this->partFactory->getPart($newPart->getContent());
+
+                /*
+                 * This should be somewhere else, but:
+                 * The parsed part has content-type 'multipart/alternative'.
+                 * The parent part has 'message/rfc822', but relations between
+                 * parts are not tracked. Therefore, I can't identify this
+                 * part as the enveloped part anywhere but here.
+                 *
+                 * The parts should be in a tree structure, then it would be
+                 * simple to identify this email after all parts were parsed.
+                 */
+                $this->envelopedEmail = $newPart;
 
                 $parts[] = $newPart;
 
@@ -217,7 +281,7 @@ class Parser
         }
 
         if ($this->getMail()->isMultipart()) {
-            $parts = $this->flattenParts($this->getMail());
+            $parts = $this->parts;
         } else {
             $parts = [$this->getMail()];
         }
