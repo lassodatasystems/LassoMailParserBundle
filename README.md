@@ -69,3 +69,13 @@ a custom glue function:
 
 Now all html parts will be concatenated with hr-tags, and all text parts will be concatenated with
 newlines and '===='.
+
+If you are processing emails send via envelope journaling (e.g. from Office365), you can access the enveloped email via 
+    
+    $parser->getEnvelopedEmail();
+    
+This will return a normal part, and you can access content/headers on it. To check if an email has an enveloped
+email as an attachment, you can use
+
+    $parser->hasEnvelopedEmail();
+
