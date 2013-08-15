@@ -421,4 +421,19 @@ MAIL;
 
         $this->assertEquals(['someone@example.com', 'spring@example.com', 'springs_colleague@example.com'], $emails);
     }
+
+    /**
+     * @test
+     */
+    public function extractDateFromEnvelopedEmail()
+    {
+        $mailBody = file_get_contents(__DIR__ . '/example_emails/microsoft_365_journaling.txt');
+
+        $parser = $this->getParser(new PartFactory());
+        $parser->parse($mailBody);
+
+        $this->assertTrue($parser->hasEnvelopedEmail());
+
+        $this->assertEquals('Mon, 12 Feb 2012 23:01:45 +0000', $parser->getEnvelopedEmail()->date);
+    }
 }
