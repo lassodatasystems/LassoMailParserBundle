@@ -181,7 +181,17 @@ class Parser
     protected function flattenParts(Part $part)
     {
         $parts = [];
-        for ($i = 1; $i <= $part->countParts(); ++$i) {
+
+        /*
+         * $part->countParts(); can throw an error if the headers are missing.
+         * Return an empty array if the headers are indeed missing.
+         */
+        if (count($part->getHeaders()) === 0) {
+            return $parts;
+        }
+
+        $partCount = $part->countParts();
+        for ($i = 1; $i <= $partCount; ++$i) {
             $newPart = $part->getPart($i);
 
             if ($newPart->isMultipart()) {
