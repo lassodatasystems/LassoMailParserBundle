@@ -436,4 +436,16 @@ MAIL;
 
         $this->assertEquals('Mon, 12 Feb 2012 23:01:45 +0000', $parser->getEnvelopedEmail()->date);
     }
+
+    /**
+     * @test
+     */
+    public function handlePostfixNDRs()
+    {
+        $mailBody = file_get_contents(__DIR__ . '/example_emails/ndr.txt');
+
+        $parser = $this->getParser(new PartFactory());
+        $parser->parse($mailBody);
+        $parser->getPrimaryContent();
+    }
 }
