@@ -194,6 +194,10 @@ class Parser
         for ($i = 1; $i <= $partCount; ++$i) {
             $newPart = $part->getPart($i);
 
+            if (count($newPart->getHeaders()) === 0) {
+                continue;
+            }
+
             if ($newPart->isMultipart()) {
                 $parts = array_merge($parts, $this->flattenParts($newPart));
             } elseif ($this->isEnvelopedEmail($newPart)) {
