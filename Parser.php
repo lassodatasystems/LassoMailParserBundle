@@ -99,7 +99,12 @@ class Parser
     {
         $addresses = [];
 
-        if (!$part->getHeaders()->has($field)) {
+        $headers = $part->getHeaders();
+        if (empty($headers)) {
+            return $addresses;
+        }
+
+        if (!$headers->has($field)) {
             return $addresses;
         }
 
