@@ -174,8 +174,13 @@ class Parser
      * @return bool
      */
     protected function isEnvelopedEmail(Part $part) {
-        return $part->getHeaders()->has('Content-Type')
-            && $part->getHeaders()->get('Content-Type')->getType() == 'message/rfc822';
+        $headers = $part->getHeaders();
+        if (empty($headers)) {
+            return false;
+        }
+
+        return $headers->has('Content-Type')
+            && $headers->get('Content-Type')->getType() == 'message/rfc822';
     }
 
     /**
@@ -303,7 +308,10 @@ class Parser
 
         foreach ($parts as $part) {
             $contentType = 'text/plain';
-            if ($part->getHeaders()->has('Content-Type')) {
+            $headers = $part->getHeaders();
+            if (!empty($headers)
+                && $headers->has('Content-Type')
+            ) {
                 $contentType = $part->getHeader('Content-Type')
                     ->getType();
             }
