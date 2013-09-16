@@ -258,7 +258,16 @@ class Parser
                 break;
 
             default:
-                $content = $part->getContent();
+                try {
+                    $content = $part->getContent();
+                } catch (Exception $e) {
+                    /*
+                     * do nothing, email has not content, there is not function
+                     * to check if the email is empty and $content is already
+                     * set to an empty string
+                     */
+                }
+
                 break;
         }
 
