@@ -159,11 +159,16 @@ class Parser
      */
     public function getLoggingEmails()
     {
+        if (empty($this->mail)) {
+            throw new LogicException('You must first call $this->parse()');
+        }
+
         $emailAddresses = $this->getAllEmailAddresses();
 
         $messageIds = [];
-        if ($this->getMail()->getHeaders()->has('message-id')) {
-            $messageId = $this->getMail()->getHeaders()->get('message-id');
+        $headers = $this->mail->getHeaders();
+        if (!empty($headers) && $headers->has('message-id')) {
+            $messageId = $headers->get('message-id');
             if ($messageId instanceof ArrayIterator) {
                 foreach ($messageId as $header) {
                     /** @var $header HeaderInterface */
