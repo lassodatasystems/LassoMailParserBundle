@@ -448,4 +448,34 @@ MAIL;
         $parser->parse($mailBody);
         $parser->getPrimaryContent();
     }
+
+    /**
+     * @test
+     */
+    public function loggingEmailsContainMessageId()
+    {
+        $mailBody = file_get_contents(__DIR__ . '/example_emails/quoted_printable_html.txt');
+
+        $parser = $this->getParser(new PartFactory());
+        $parser->parse($mailBody);
+        $loggingEmails = $parser->getLoggingEmails();
+
+        $this->assertContains('74111298-6423-2943-9875-39906A7EA733@example.com', $loggingEmails);
+    }
+
+    /**
+     * @test
+     */
+    public function multipleMessageIdsEndUpInLoggingEmails()
+    {
+
+        $mailBody = file_get_contents(__DIR__ . '/example_emails/multiple_message_ids.txt');
+
+        $parser = $this->getParser(new PartFactory());
+        $parser->parse($mailBody);
+        $loggingEmails = $parser->getLoggingEmails();
+
+        $this->assertContains('74111298-6423-2943-9875-39906A7EA733@example.com', $loggingEmails);
+        $this->assertContains('second-message-id@example.com', $loggingEmails);
+    }
 }
