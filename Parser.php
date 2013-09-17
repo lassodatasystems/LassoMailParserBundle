@@ -20,9 +20,11 @@
  */
 namespace Lasso\MailParserBundle;
 
+use ArrayIterator;
 use Exception;
 use LogicException;
 use Zend\Mail\Header\AbstractAddressList;
+use Zend\Mail\Header\HeaderInterface;
 use Zend\Mail\Storage\Part;
 
 /**
@@ -148,6 +150,46 @@ class Parser
     }
 
     /**
+     * Returns a list of all emails in the parser, including
+     * the message id. This is mostly useful for logging.
+     *
+     * @param Parser $email
+     *
+     * @return array
+     */
+    public function getLoggingEmails()
+    {
+        if (empty($this->mail)) {
+            throw new LogicException('You must first call $this->parse()');
+        }
+
+        $emailAddresses = $this->getAllEmailAddresses();
+
+        $messageIds = [];
+        $headers = $this->mail->getHeaders();
+        if (!empty($headers) && $headers->has('message-id')) {
+            $messageId = $headers->get('message-id');
+            if ($messageId instanceof ArrayIterator) {
+                foreach ($messageId as $header) {
+                    /** @var $header HeaderInterface */
+                    $messageIds[] = $header->getFieldValue();
+                }
+            } elseif ($messageId instanceof HeaderInterface) {
+                $messageIds = [$messageId->getFieldValue()];
+            }
+        }
+
+        /*
+         * Also strip < and > from message id to only return the email-like id
+         */
+        $messageIds = array_map(function($messageId) {
+            return trim($messageId, " \t\n\r\0\x0B<>");
+        }, $messageIds);
+
+        return array_merge($emailAddresses, $messageIds);
+    }
+
+    /**
      * If the email contained an enveloped email, this method will provide the enveloped email. It can
      * then be used to extract information about the original exchange.
      *
@@ -244,8 +286,11 @@ class Parser
         $content = '';
 
         $contentTransferEncoding = '7-bit';
-        if (isset($part->content_transfer_encoding)) {
-            $contentTransferEncoding = $part->content_transfer_encoding;
+        $headers = $part->getHeaders();
+        if (!empty($headers) && $headers->has('content-transfer-encoding')) {
+            $contentTransferEncoding = $headers
+                ->get('content-transfer-encoding')
+                ->getFieldValue();
         }
 
         switch ($contentTransferEncoding) {
