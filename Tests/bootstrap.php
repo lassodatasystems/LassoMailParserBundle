@@ -1,8 +1,7 @@
 <?php
 $autoloadLocations = [
     __DIR__ . '/../../../../../autoload.php',
-    __DIR__ . '/../vendor/.composer/autoload.php',
-    exec('locate autoload.php')
+    __DIR__ . '/../vendor/autoload.php'
 ];
 
 $autoloadLocation = '';

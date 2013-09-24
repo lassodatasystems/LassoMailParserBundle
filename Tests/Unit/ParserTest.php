@@ -24,9 +24,6 @@ use Lasso\MailParserBundle\PartFactory;
 use Lasso\MailParserBundle\Parser;
 use PHPUnit_Framework_TestCase;
 
-require dirname(__FILE__) . '/../../PartFactory.php';
-require dirname(__FILE__) . '/../../Parser.php';
-
 class ParserTests extends PHPUnit_Framework_TestCase
 {
     protected $partFactory;
