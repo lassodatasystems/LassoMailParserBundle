@@ -1,4 +1,4 @@
-##Lasso Mail Parser
+##Lasso Mail Parser [![Build Status](https://travis-ci.org/lassodatasystems/LassoMailParserBundle.png?branch=master)](https://travis-ci.org/lassodatasystems/LassoMailParserBundle)
 
 For when you want easy access to an email's content. The Zend Framework has classes to parse emails,
 but they can be a bit clunky to use. For example, emails are split into parts, and you have to loop
@@ -70,10 +70,10 @@ a custom glue function:
 Now all html parts will be concatenated with hr-tags, and all text parts will be concatenated with
 newlines and '===='.
 
-If you are processing emails send via envelope journaling (e.g. from Office365), you can access the enveloped email via 
-    
+If you are processing emails send via envelope journaling (e.g. from Office365), you can access the enveloped email via
+
     $parser->getEnvelopedEmail();
-    
+
 This will return a normal part, and you can access content/headers on it. To check if an email has an enveloped
 email as an attachment, you can use
 
