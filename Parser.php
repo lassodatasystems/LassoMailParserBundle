@@ -97,7 +97,7 @@ class Parser
             $this->mail->countParts();
         } catch (RuntimeException $e) {
             if (count($part->getHeaders()) > 0
-                && $part->getHEaders()->has('Content-Type')
+                && $part->getHeaders()->has('Content-Type')
                 && array_key_exists('boundary', $part->getHeaders()->get('Content-Type')->getParameters())) {
                 $boundary = $part
                     ->getHeaders()
