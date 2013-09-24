@@ -1,7 +1,8 @@
 <?php
 $autoloadLocations = [
     __DIR__ . '/../../../../../autoload.php',
-    __DIR__ . '/../vendor/.composer/autoload.php'
+    __DIR__ . '/../vendor/.composer/autoload.php',
+    exec('locate autoload.php')
 ];
 
 $autoloadLocation = '';
@@ -14,7 +15,7 @@ foreach ($autoloadLocations as $location) {
 }
 
 if (empty($autoloadLocation)) {
-    throw new \LogicException('Could not find ' . $autoloadLocation . '.');
+    throw new \LogicException('Could not find a suitable autoloading file.');
 }
 
 require $autoloadLocation;
