@@ -1,0 +1,30 @@
+Return-Path: <someone@example.com>
+From: Some One <someone@example.com>
+Content-Type: multipart/alternative; boundary="Apple-Mail=_FD632789-3623-8863-863A-532708632"
+Subject: Mail list Page
+Message-Id: <74111298-6423-2943-9875-39906A7EA733@example.com>
+Date: Thu, 2 May 2013 12:31:20 +0200
+To: CGPro cPanel Development <cpanel_dev@communigate.com>
+Mime-Version: 1.0 (Mac OS X Mail 6.3 \(1503\))
+X-Mailer: Apple Mail (2.1503)
+
+
+--Apple-Mail=_FD632789-3623-8863-863A-532708632
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain;
+	charset=us-ascii
+
+this is a long line that should be not that long but is too long for =
+the mail standard so we add these equal signs
+
+thank you =
+
+--Apple-Mail=_FD632789-3623-8863-863A-532708632
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/html;
+	charset=us-ascii
+
+<html><head><meta http-equiv=3D"Content-Type" content=3D"text/html =
+charset=3Dus-ascii"></head><body style=3D"word-wrap: break-word; =
+-webkit-nbsp-mode: space; -webkit-line-break: after-white-space; ">=
+simple html test</body></html>=

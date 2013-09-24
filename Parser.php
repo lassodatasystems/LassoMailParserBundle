@@ -26,6 +26,7 @@ use LogicException;
 use Zend\Mail\Header\AbstractAddressList;
 use Zend\Mail\Header\HeaderInterface;
 use Zend\Mail\Storage\Part;
+use Zend\Mime\Exception\RuntimeException;
 
 /**
  * Provides a very simple wrapper around the zend mail library. Contains assorted helper functions regarding mail
@@ -73,7 +74,42 @@ class Parser
     {
         $this->mail = $this->partFactory->getPart($mail);
 
+        $this->workAroundMissingBoundary($this->mail, $mail);
+
         $this->parts = $this->flattenParts($this->mail);
+    }
+
+    /**
+     * Some emails are missing a MIME closing boundary. This violations the standard,
+     * but most software still handles it well - except the Zend Framework, who rather
+     * don't want to accommodate broken emails.
+     *
+     * Since they don't provide any meaningful way to test if the message was decoded
+     * correctly (like a $part->test() method or something), the only recourse is to
+     * call some function on the part and handle the exception that's thrown when the
+     * closing boundary is missing.
+     *
+     * Then append the boundary and re-parse the email.
+     */
+    public function workAroundMissingBoundary(Part $part, $rawMailBody)
+    {
+        try {
+            $this->mail->countParts();
+        } catch (RuntimeException $e) {
+            if (count($part->getHeaders()) > 0
+                && $part->getHEaders()->has('Content-Type')
+                && array_key_exists('boundary', $part->getHeaders()->get('Content-Type')->getParameters())) {
+                $boundary = $part
+                    ->getHeaders()
+                    ->get('Content-Type')
+                    ->getParameter('boundary');
+
+                $content = trim($rawMailBody);
+                $content.= "\n--{$boundary}--";
+
+                $this->mail = $this->partFactory->getPart($content);
+            }
+        }
     }
 
     /**
@@ -242,7 +278,12 @@ class Parser
             return $parts;
         }
 
-        $partCount = $part->countParts();
+        try {
+            $partCount = $part->countParts();
+        } catch (Exception $e) {
+            return $parts;
+        }
+
         for ($i = 1; $i <= $partCount; ++$i) {
             $newPart = $part->getPart($i);
 
