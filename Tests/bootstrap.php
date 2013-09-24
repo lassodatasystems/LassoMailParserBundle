@@ -1,7 +1,20 @@
 <?php
-$autoloadFile = dirname(__FILE__) . '/../../../../../autoload.php';
-if (!is_file($autoloadFile)) {
-    throw new \LogicException('Could not find ' . $autoloadFile . ' in vendor/. Did you run "composer install --dev"?');
+$autoloadLocations = [
+    __DIR__ . '/../../../../../autoload.php',
+    __DIR__ . '/../vendor/.composer/autoload.php'
+];
+
+$autoloadLocation = '';
+
+foreach ($autoloadLocations as $location) {
+    if (file_exists($location)) {
+        $autoloadLocation = $location;
+        break;
+    }
 }
 
-require $autoloadFile;
+if (empty($autoloadLocation)) {
+    throw new \LogicException('Could not find ' . $autoloadLocation . '.');
+}
+
+require $autoloadLocation;
