@@ -5,4 +5,4 @@ php:
 before_script:
     composer install --dev
 
-script: phpunit -c phpunit.xml.dist
+script: phpunit
