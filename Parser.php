@@ -98,14 +98,15 @@ class Parser
         } catch (RuntimeException $e) {
             if (count($part->getHeaders()) > 0
                 && $part->getHeaders()->has('Content-Type')
-                && array_key_exists('boundary', $part->getHeaders()->get('Content-Type')->getParameters())) {
+                && array_key_exists('boundary', $part->getHeaders()->get('Content-Type')->getParameters())
+            ) {
                 $boundary = $part
                     ->getHeaders()
                     ->get('Content-Type')
                     ->getParameter('boundary');
 
                 $content = trim($rawMailBody);
-                $content.= "\n--{$boundary}--";
+                $content .= "\n--{$boundary}--";
 
                 $this->mail = $this->partFactory->getPart($content);
             }
@@ -202,7 +203,7 @@ class Parser
         $emailAddresses = $this->getAllEmailAddresses();
 
         $messageIds = [];
-        $headers = $this->mail->getHeaders();
+        $headers    = $this->mail->getHeaders();
         if (!empty($headers) && $headers->has('message-id')) {
             $messageId = $headers->get('message-id');
             if ($messageId instanceof ArrayIterator) {
@@ -218,7 +219,7 @@ class Parser
         /*
          * Also strip < and > from message id to only return the email-like id
          */
-        $messageIds = array_map(function($messageId) {
+        $messageIds = array_map(function ($messageId) {
             return trim($messageId, " \t\n\r\0\x0B<>");
         }, $messageIds);
 
@@ -251,14 +252,15 @@ class Parser
      *
      * @return bool
      */
-    protected function isEnvelopedEmail(Part $part) {
+    protected function isEnvelopedEmail(Part $part)
+    {
         $headers = $part->getHeaders();
         if (empty($headers)) {
             return false;
         }
 
         return $headers->has('Content-Type')
-            && $headers->get('Content-Type')->getType() == 'message/rfc822';
+        && $headers->get('Content-Type')->getType() == 'message/rfc822';
     }
 
     /**
@@ -327,11 +329,22 @@ class Parser
         $content = '';
 
         $contentTransferEncoding = '7-bit';
-        $headers = $part->getHeaders();
-        if (!empty($headers) && $headers->has('content-transfer-encoding')) {
-            $contentTransferEncoding = $headers
-                ->get('content-transfer-encoding')
-                ->getFieldValue();
+        $contentCharset = 'auto';
+        $headers                 = $part->getHeaders();
+        if (!empty($headers)) {
+            if ($headers->has('Content-Transfer-Encoding')) {
+                $contentTransferEncoding = $headers
+                    ->get('Content-Transfer-Encoding')
+                    ->getFieldValue();
+            }
+
+            if ($headers->has('Content-Type')) {
+                $newContentCharset = $headers->get('Content-Type')->getParameter('charset');
+
+                if (!empty($newContentCharset)) {
+                    $contentCharset = $newContentCharset;
+                }
+            }
         }
 
         switch ($contentTransferEncoding) {
@@ -357,7 +370,7 @@ class Parser
                 break;
         }
 
-        return trim($content);
+        return trim(mb_convert_encoding($content, 'UTF-8', $contentCharset));
     }
 
     /**
@@ -403,7 +416,7 @@ class Parser
 
         foreach ($parts as $part) {
             $contentType = 'text/plain';
-            $headers = $part->getHeaders();
+            $headers     = $part->getHeaders();
             if (!empty($headers)
                 && $headers->has('Content-Type')
             ) {
