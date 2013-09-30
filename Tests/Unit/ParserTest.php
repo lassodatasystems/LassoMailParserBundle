@@ -487,4 +487,17 @@ MAIL;
 
         $this->assertContains('simple html test', $parser->getPrimaryContent());
     }
+
+    /**
+     * @test
+     */
+    public function decodeChineseText()
+    {
+        $mailBody = file_get_contents(__DIR__ . '/example_emails/chinese.txt');
+
+        $parser = $this->getParser(new PartFactory());
+        $parser->parse($mailBody);
+
+        $this->assertContains('而幫助客戶從車輛碰撞後低落的情緒中重拾信心', $parser->getPrimaryContent());
+    }
 }
