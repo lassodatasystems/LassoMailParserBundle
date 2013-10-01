@@ -354,7 +354,7 @@ class Parser
                 $newContentCharset = $headers->get('Content-Type')->getParameter('charset');
 
                 if (!empty($newContentCharset)
-                    && in_array(strtolower($newContentCharset), $this->knownCharsets)
+                    && in_array($this->prepareEncodingName($newContentCharset), $this->knownCharsets)
                 ) {
                     $contentCharset = $newContentCharset;
                 }
