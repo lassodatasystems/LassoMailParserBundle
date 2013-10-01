@@ -1,0 +1,10 @@
+MIME-Version: 1.0
+Date: Mon, 30 Sep 2013 11:52:58 -0700
+Message-ID: <Cz2JVoH1L8uN09cmg@example.com>
+Subject: test
+From: a@exmaple.com
+To: b@example.com
+Content-Type: text/plain; charset=no_such_charset
+Content-Transfer-Encoding: 7bit
+
+EINS ZWEI DREI
