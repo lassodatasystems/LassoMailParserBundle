@@ -500,4 +500,17 @@ MAIL;
 
         $this->assertContains('而幫助客戶從車輛碰撞後低落的情緒中重拾信心', $parser->getPrimaryContent());
     }
+
+    /**
+     * @test
+     */
+    public function handleNonExistingButSpecifiedCharsets()
+    {
+        $mailBody = file_get_contents(__DIR__ . '/example_emails/broken_charset.txt');
+
+        $parser = $this->getParser(new PartFactory());
+        $parser->parse($mailBody);
+
+        $this->assertContains('EINS ZWEI DREI', $parser->getPrimaryContent());
+    }
 }

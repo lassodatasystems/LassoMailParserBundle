@@ -56,12 +56,24 @@ class Parser
      */
     protected $envelopedEmail;
 
+    /*
+     * @var Array
+     */
+    protected $knownCharsets;
+
     /**
      * @param PartFactory $partFactory
      */
     public function __construct(PartFactory $partFactory)
     {
         $this->partFactory = $partFactory;
+
+        $this->knownCharsets = array_map([$this, 'prepareEncodingName'], mb_list_encodings());
+    }
+
+    private function prepareEncodingName($name)
+    {
+        return strtolower(preg_replace('/[^a-z0-9]/i', '', $name));
     }
 
     /**
@@ -341,7 +353,9 @@ class Parser
             if ($headers->has('Content-Type')) {
                 $newContentCharset = $headers->get('Content-Type')->getParameter('charset');
 
-                if (!empty($newContentCharset)) {
+                if (!empty($newContentCharset)
+                    && in_array(strtolower($newContentCharset), $this->knownCharsets)
+                ) {
                     $contentCharset = $newContentCharset;
                 }
             }
