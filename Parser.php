@@ -165,7 +165,7 @@ class Parser
         }
 
         foreach ($addressList->getAddressList() as $address) {
-            $addresses[] = $address->getEmail();
+            $addresses[] = strtolower($address->getEmail());
         }
 
         return $addresses;
