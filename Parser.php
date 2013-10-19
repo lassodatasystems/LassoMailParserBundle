@@ -23,6 +23,7 @@ namespace Lasso\MailParserBundle;
 use ArrayIterator;
 use Exception;
 use LogicException;
+use UnexpectedValueException;
 use Zend\Mail\Header\AbstractAddressList;
 use Zend\Mail\Header\HeaderInterface;
 use Zend\Mail\Storage\Part;
@@ -56,10 +57,17 @@ class Parser
      */
     protected $envelopedEmail;
 
-    /*
+    /**
      * @var Array
      */
     protected $knownCharsets;
+
+    /**
+     * Identifies exception for unknown charsets
+     *
+     * @var int
+     */
+    const INVALID_CHARSET_ERROR_CODE = 525;
 
     /**
      * @param PartFactory $partFactory
@@ -384,7 +392,13 @@ class Parser
                 break;
         }
 
-        return trim(mb_convert_encoding($content, 'UTF-8', $contentCharset));
+        if (mb_check_encoding($content, $contentCharset)) {
+            $convertedContent = mb_convert_encoding($content, 'UTF-8', $contentCharset);
+        } else {
+            throw new UnexpectedValueException('Unknown charset:' . $contentCharset, self::INVALID_CHARSET_ERROR_CODE);
+        }
+
+        return trim($convertedContent);
     }
 
     /**
@@ -438,11 +452,21 @@ class Parser
                     ->getType();
             }
 
-            if ($contentType == 'text/plain') {
-                $textContent[] = $this->decodeBody($part);
-            }
-            if ($contentType == 'text/html') {
-                $htmlContent[] = $this->decodeBody($part);
+            try {
+                if ($contentType == 'text/plain') {
+                    $textContent[] = $this->decodeBody($part);
+                }
+                if ($contentType == 'text/html') {
+                    $htmlContent[] = $this->decodeBody($part);
+                }
+            } catch (UnexpectedValueException $exception) {
+                if ($exception->getCode() == self::INVALID_CHARSET_ERROR_CODE) {
+                    /*
+                     * Couldn't convert content, in all likelihood can't work with it, so
+                     * return an empty string
+                     */
+                    return "";
+                }
             }
         }
 
