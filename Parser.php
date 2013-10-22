@@ -63,6 +63,13 @@ class Parser
     protected $knownCharsets;
 
     /**
+     * Keeps a list of parts that produced charset problems while decoding the body
+     *
+     * @var array
+     */
+    protected $problematicParts = [];
+
+    /**
      * Identifies exception for unknown charsets
      *
      * @var int
@@ -392,13 +399,43 @@ class Parser
                 break;
         }
 
-        if (mb_check_encoding($content, $contentCharset)) {
-            $convertedContent = mb_convert_encoding($content, 'UTF-8', $contentCharset);
-        } else {
-            throw new UnexpectedValueException('Unknown charset:' . $contentCharset, self::INVALID_CHARSET_ERROR_CODE);
+        $hasError = false;
+
+        set_error_handler(function($errorLevel, $errorMessage) use (&$hasError) {
+            $hasError = true;
+
+            return true;
+        }, E_ALL);
+
+        $convertedContent = mb_convert_encoding($content, 'UTF-8', $contentCharset);
+
+        restore_error_handler();
+
+        if ($hasError) {
+            throw new UnexpectedValueException('Content: ' . $content, Parser::INVALID_CHARSET_ERROR_CODE);
         }
 
         return trim($convertedContent);
+    }
+
+    /**
+     * Returns all parts that had charset problems while decoding the content
+     *
+     * @return Part[]
+     */
+    public function getProblematicParts()
+    {
+        return $this->problematicParts;
+    }
+
+    /**
+     * Check if there were any parts with charset problems
+     *
+     * @return bool
+     */
+    public function hasProblematicParts()
+    {
+        return !empty($this->problematicParts);
     }
 
     /**
@@ -461,6 +498,8 @@ class Parser
                 }
             } catch (UnexpectedValueException $exception) {
                 if ($exception->getCode() == self::INVALID_CHARSET_ERROR_CODE) {
+                    $this->problematicParts[] = $part;
+
                     /*
                      * Couldn't convert content, in all likelihood can't work with it, so
                      * return an empty string
