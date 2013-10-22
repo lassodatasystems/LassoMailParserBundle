@@ -400,11 +400,9 @@ class Parser
         }
 
         $hasError = false;
-        $message = '';
 
-        set_error_handler(function($errorLevel, $errorMessage) use (&$hasError, $message) {
+        set_error_handler(function($errorLevel, $errorMessage) use (&$hasError) {
             $hasError = true;
-            $message = $errorMessage;
 
             return true;
         }, E_ALL);
