@@ -399,6 +399,17 @@ class Parser
                 break;
         }
 
+        /*
+         * mb_convert_encoding might produce warnings/error if the $contentCharset is wrong.
+         * mb_check_encoding for some reason doesn't fail those cases, so there's no way
+         * to check if the encoding is correct.
+         *
+         * Using a custom error handler allows marking the part as problematic when
+         * mb_convert_encoding produces a warning, while preventing a php-internal warning.
+         *
+         * This way, log files won't get cluttered and there's an easy way to deal with the
+         * problematic parts.
+         */
         $hasError = false;
 
         set_error_handler(function($errorLevel, $errorMessage) use (&$hasError) {
