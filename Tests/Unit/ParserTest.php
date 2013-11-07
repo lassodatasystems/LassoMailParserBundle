@@ -513,4 +513,17 @@ MAIL;
 
         $this->assertContains('EINS ZWEI DREI', $parser->getPrimaryContent());
     }
+
+    /**
+     * @test
+     */
+    public function chooseRandomEncodingWhenMultipleArePresent()
+    {
+        $mailBody = file_get_contents(__DIR__ . '/example_emails/multiple_transfer_encoding_headers_present.txt');
+
+        $parser = $this->getParser(new PartFactory());
+        $parser->parse($mailBody);
+
+        $this->assertContains('simple html test', $parser->getPrimaryContent());
+    }
 }

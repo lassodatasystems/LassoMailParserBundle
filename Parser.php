@@ -360,9 +360,17 @@ class Parser
         $headers                 = $part->getHeaders();
         if (!empty($headers)) {
             if ($headers->has('Content-Transfer-Encoding')) {
-                $contentTransferEncoding = $headers
-                    ->get('Content-Transfer-Encoding')
-                    ->getFieldValue();
+                $contentTransferEncodingHeader = $headers->get('Content-Transfer-Encoding');
+                if (is_a($contentTransferEncodingHeader, 'ArrayIterator')) {
+                    /*
+                     * Multiple transfer encoding headers don't really make sense and are
+                     * indicative of a malformed message. Just choose the first one and hope
+                     * it works.
+                     */
+                    $contentTransferEncodingHeader = $headers->get('Content-Transfer-Encoding')[0];
+                }
+
+                $contentTransferEncoding = $contentTransferEncodingHeader->getFieldValue();
             }
 
             if ($headers->has('Content-Type')) {
