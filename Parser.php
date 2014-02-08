@@ -86,11 +86,6 @@ class Parser
         $this->knownCharsets = array_map([$this, 'prepareEncodingName'], mb_list_encodings());
     }
 
-    private function prepareEncodingName($name)
-    {
-        return strtolower(preg_replace('/[^a-z0-9]/i', '', $name));
-    }
-
     /**
      * Accepts the raw email as a string, including headers and body. Has to be called before the other functions
      * are available.
@@ -160,6 +155,8 @@ class Parser
      *
      * @param string $field
      * @param Part   $part
+     *
+     * @return array
      */
     protected function getAddressesFromFieldInPart($field, Part $part)
     {
@@ -190,8 +187,10 @@ class Parser
      * Returns all email addresses contained in the email headers. This includes, to, from, cc, and bcc.
      * $this->parse() has to be called before this function is available.
      *
+     * @param array $fields
+     *
+     * @throws \LogicException
      * @return array
-     * @throws LogicException
      */
     public function getAllEmailAddresses($fields = ['to', 'from', 'cc', 'bcc'])
     {
@@ -217,9 +216,8 @@ class Parser
      * Returns a list of all emails in the parser, including
      * the message id. This is mostly useful for logging.
      *
-     * @param Parser $email
-     *
      * @return array
+     * @throws \LogicException
      */
     public function getLoggingEmails()
     {
@@ -281,160 +279,11 @@ class Parser
      */
     protected function isEnvelopedEmail(Part $part)
     {
-        $headers = $part->getHeaders();
-        if (empty($headers)) {
+        if (!$this->hasHeader($part, 'Content-Type')) {
             return false;
         }
 
-        return $headers->has('Content-Type')
-        && $headers->get('Content-Type')->getType() == 'message/rfc822';
-    }
-
-    /**
-     * @param Part $part
-     *
-     * @return Part[]
-     */
-    protected function flattenParts(Part $part)
-    {
-        $parts = [];
-
-        /*
-         * $part->countParts(); can throw an error if the headers are missing.
-         * Return an empty array if the headers are indeed missing.
-         */
-        if (count($part->getHeaders()) === 0) {
-            return $parts;
-        }
-
-        try {
-            $partCount = $part->countParts();
-        } catch (Exception $e) {
-            return $parts;
-        }
-
-        for ($i = 1; $i <= $partCount; ++$i) {
-            $newPart = $part->getPart($i);
-
-            if (count($newPart->getHeaders()) === 0) {
-                continue;
-            }
-
-            if ($newPart->isMultipart()) {
-                $parts = array_merge($parts, $this->flattenParts($newPart));
-            } elseif ($this->isEnvelopedEmail($newPart)) {
-                $newPart = $this->partFactory->getPart($newPart->getContent());
-
-                /*
-                 * This should be somewhere else, but:
-                 * The parsed part has content-type 'multipart/alternative'.
-                 * The parent part has 'message/rfc822', but relations between
-                 * parts are not tracked. Therefore, I can't identify this
-                 * part as the enveloped part anywhere but here.
-                 *
-                 * The parts should be in a tree structure, then it would be
-                 * simple to identify this email after all parts were parsed.
-                 */
-                $this->envelopedEmail = $newPart;
-
-                $parts[] = $newPart;
-
-                $parts = array_merge($parts, $this->flattenParts($newPart));
-            } else {
-                $parts[] = $newPart;
-            }
-        }
-
-        return $parts;
-    }
-
-    /**
-     * @param Part $message
-     */
-    private function decodeBody(Part $part)
-    {
-        $content = '';
-
-        $contentTransferEncoding = '7-bit';
-        $contentCharset = 'auto';
-        $headers                 = $part->getHeaders();
-        if (!empty($headers)) {
-            if ($headers->has('Content-Transfer-Encoding')) {
-                $contentTransferEncodingHeader = $headers->get('Content-Transfer-Encoding');
-                if (is_a($contentTransferEncodingHeader, 'ArrayIterator')) {
-                    /*
-                     * Multiple transfer encoding headers don't really make sense and are
-                     * indicative of a malformed message. Just choose the first one and hope
-                     * it works.
-                     */
-                    $contentTransferEncodingHeader = $headers->get('Content-Transfer-Encoding')[0];
-                }
-
-                $contentTransferEncoding = $contentTransferEncodingHeader->getFieldValue();
-            }
-
-            if ($headers->has('Content-Type')) {
-                $newContentCharset = $headers->get('Content-Type')->getParameter('charset');
-
-                if (!empty($newContentCharset)
-                    && in_array($this->prepareEncodingName($newContentCharset), $this->knownCharsets)
-                ) {
-                    $contentCharset = $newContentCharset;
-                }
-            }
-        }
-
-        switch ($contentTransferEncoding) {
-            case 'base64':
-                $content = base64_decode($part->getContent());
-                break;
-
-            case 'quoted-printable':
-                $content = quoted_printable_decode($part->getContent());
-                break;
-
-            default:
-                try {
-                    $content = $part->getContent();
-                } catch (Exception $e) {
-                    /*
-                     * do nothing, email has not content, there is not function
-                     * to check if the email is empty and $content is already
-                     * set to an empty string
-                     */
-                }
-
-                break;
-        }
-
-        /*
-         * mb_convert_encoding might produce warnings/error if the $contentCharset is wrong.
-         * mb_check_encoding for some reason doesn't fail those cases, so there's no way
-         * to check if the encoding is correct.
-         *
-         * Using a custom error handler allows marking the part as problematic when
-         * mb_convert_encoding produces a warning, while preventing a php-internal warning.
-         *
-         * This way, log files won't get cluttered and there's an easy way to deal with the
-         * problematic parts.
-         */
-        $hasError = false;
-
-        set_error_handler(function($errorLevel, $errorMessage) use (&$hasError) {
-            $hasError = true;
-
-            return true;
-        }, E_ALL);
-
-        $convertedContent = mb_convert_encoding($content, 'UTF-8', $contentCharset);
-
-        restore_error_handler();
-
-        if ($hasError) {
-            throw new UnexpectedValueException('Content: ' . $content, Parser::INVALID_CHARSET_ERROR_CODE);
-        }
-
-        return trim($convertedContent);
+        return $this->getContentType($part)->getType() == 'message/rfc822';
     }
 
     /**
@@ -500,11 +349,10 @@ class Parser
 
         foreach ($parts as $part) {
             $contentType = 'text/plain';
-            $headers     = $part->getHeaders();
-            if (!empty($headers)
-                && $headers->has('Content-Type')
-            ) {
-                $contentType = $part->getHeader('Content-Type')
+
+            if ($this->hasHeader($part, 'Content-Type')) {
+                $contentType = $this
+                    ->getContentType($part)
                     ->getType();
             }
 
@@ -562,5 +410,236 @@ class Parser
         }
 
         return null;
+    }
+
+    /**
+     * @param Part $part
+     *
+     * @return string
+     * @throws \UnexpectedValueException
+     */
+    private function decodeBody(Part $part)
+    {
+        $content = '';
+
+        $contentTransferEncoding = '7-bit';
+        $contentCharset = 'auto';
+        $headers                 = $part->getHeaders();
+        if (!empty($headers)) {
+            if ($headers->has('Content-Transfer-Encoding')) {
+                $contentTransferEncodingHeader = $headers->get('Content-Transfer-Encoding');
+                if (is_a($contentTransferEncodingHeader, 'ArrayIterator')) {
+                    /*
+                     * Multiple transfer encoding headers don't really make sense and are
+                     * indicative of a malformed message. Just choose the first one and hope
+                     * it works.
+                     */
+                    $contentTransferEncodingHeader = $headers->get('Content-Transfer-Encoding')[0];
+                }
+
+                $contentTransferEncoding = $contentTransferEncodingHeader->getFieldValue();
+            }
+
+            if ($this->hasHeader($part, 'Content-Type')) {
+                $newContentCharset = $this
+                    ->getContentType($part)
+                    ->getParameter('charset');
+
+
+                if (!empty($newContentCharset)
+                    && in_array($this->prepareEncodingName($newContentCharset), $this->knownCharsets)
+                ) {
+                    $contentCharset = $newContentCharset;
+                }
+            }
+        }
+
+        switch ($contentTransferEncoding) {
+            case 'base64':
+                $content = base64_decode($part->getContent());
+                break;
+
+            case 'quoted-printable':
+                $content = quoted_printable_decode($part->getContent());
+                break;
+
+            default:
+                try {
+                    $content = $part->getContent();
+                } catch (Exception $e) {
+                    /*
+                     * do nothing, email has not content, there is not function
+                     * to check if the email is empty and $content is already
+                     * set to an empty string
+                     */
+                }
+
+                break;
+        }
+
+        /*
+         * mb_convert_encoding might produce warnings/error if the $contentCharset is wrong.
+         * mb_check_encoding for some reason doesn't fail those cases, so there's no way
+         * to check if the encoding is correct.
+         *
+         * Using a custom error handler allows marking the part as problematic when
+         * mb_convert_encoding produces a warning, while preventing a php-internal warning.
+         *
+         * This way, log files won't get cluttered and there's an easy way to deal with the
+         * problematic parts.
+         */
+        $hasError = false;
+
+        set_error_handler(function($errorLevel, $errorMessage) use (&$hasError) {
+            $hasError = true;
+
+            return true;
+        }, E_ALL);
+
+        $convertedContent = mb_convert_encoding($content, 'UTF-8', $contentCharset);
+
+        restore_error_handler();
+
+        if ($hasError) {
+            throw new UnexpectedValueException('Content: ' . $content, Parser::INVALID_CHARSET_ERROR_CODE);
+        }
+
+        return trim($convertedContent);
+    }
+
+    /**
+     * @param Part $part
+     *
+     * @return Part[]
+     */
+    protected function flattenParts(Part $part)
+    {
+        $parts = [];
+
+        /*
+         * $part->countParts(); can throw an error if the headers are missing.
+         * Return an empty array if the headers are indeed missing.
+         */
+        if (count($part->getHeaders()) === 0) {
+            return $parts;
+        }
+
+        try {
+            $partCount = $part->countParts();
+        } catch (Exception $e) {
+            return $parts;
+        }
+
+        for ($i = 1; $i <= $partCount; ++$i) {
+            $newPart = $part->getPart($i);
+
+            if (count($newPart->getHeaders()) === 0) {
+                continue;
+            }
+
+            if ($newPart->isMultipart()) {
+                $parts = array_merge($parts, $this->flattenParts($newPart));
+            } elseif ($this->isEnvelopedEmail($newPart)) {
+                $newPart = $this->partFactory->getPart($newPart->getContent());
+
+                /*
+                 * This should be somewhere else, but:
+                 * The parsed part has content-type 'multipart/alternative'.
+                 * The parent part has 'message/rfc822', but relations between
+                 * parts are not tracked. Therefore, I can't identify this
+                 * part as the enveloped part anywhere but here.
+                 *
+                 * The parts should be in a tree structure, then it would be
+                 * simple to identify this email after all parts were parsed.
+                 */
+                $this->envelopedEmail = $newPart;
+
+                $parts[] = $newPart;
+
+                $parts = array_merge($parts, $this->flattenParts($newPart));
+            } else {
+                $parts[] = $newPart;
+            }
+        }
+
+        return $parts;
+    }
+
+    /**
+     * The confusing zend API makes a custom function for
+     * header checking necessary.
+     *
+     * @param Part $part
+     * @param string $header
+     *
+     * @return bool
+     */
+    protected function hasHeader(Part $part, $header)
+    {
+        if (count($part->getHeaders()) < 1) {
+            return false;
+        }
+
+        return $part
+            ->getHeaders()
+            ->has($header);
+    }
+
+    /**
+     * Returns the content type of the given part. Since zends API
+     * allows for four different return values, we need to handle
+     * every type differently. Multiple content-type headers can't
+     * be accounted for, in those cases we simply take the first
+     * one and hope for the best. If it doesn't work, there's not
+     * much that could be done as content-type guessing is not an
+     * easily solved problem.
+     *
+     * The content-type header should always be broken up into
+     * a header interface, it just could happen that the zend
+     * framework returns an array or array iterator when multiple
+     * content-type headers are present. In that case, the first
+     * encountered header will be used.
+     *
+     * @param Part $part
+     *
+     * @return HeaderInterface
+     * @throws \Exception
+     */
+    protected function getContentType(Part $part)
+    {
+        if (!$this->hasHeader($part, 'Content-Type')) {
+            throw new Exception('This email does not have a content type. Check for that with hasContentType()');
+        }
+
+        $zendContentType = $part
+            ->getHeaders()
+            ->get('Content-Type');
+
+        switch (true) {
+            case is_array($zendContentType):
+                return $zendContentType[0];
+            case $zendContentType instanceof HeaderInterface:
+                return $zendContentType;
+            case $zendContentType instanceof ArrayIterator:
+                return $zendContentType->current();
+            default:
+                throw new Exception('Unexpected return type ' .
+                    gettype($zendContentType) .
+                    ', expected one of string, array, HeaderInterface or ArrayIterator' .
+                    ' from Part::getHeaders()::get("Content-Type"))'
+                );
+        }
+    }
+
+    /**
+     * Prepares an encoding name for lookup with php's internal functions
+     *
+     * @param $name
+     *
+     * @return string
+     */
+    protected function prepareEncodingName($name)
+    {
+        return strtolower(preg_replace('/[^a-z0-9]/i', '', $name));
     }
 }
