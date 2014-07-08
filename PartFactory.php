@@ -22,8 +22,18 @@ namespace Lasso\MailParserBundle;
 
 use Zend\Mail\Storage\Part;
 
+/**
+ * Class PartFactory
+ *
+ * @package Lasso\MailParserBundle
+ */
 class PartFactory
 {
+    /**
+     * @param string $mailBody
+     *
+     * @return Part
+     */
     public function getPart($mailBody)
     {
         return new Part(['raw' => $mailBody]);
