@@ -24,6 +24,13 @@ use Lasso\MailParserBundle\PartFactory;
 use Lasso\MailParserBundle\Parser;
 use PHPUnit_Framework_TestCase;
 
+/**
+ * Class ParserTests
+ *
+ * @SuppressWarnings(PMD.TooManyMethods)
+ *
+ * @package Lasso\MailParserBundle\Tests\Unit
+ */
 class ParserTests extends PHPUnit_Framework_TestCase
 {
     protected $partFactory;
@@ -43,6 +50,9 @@ Content-Transfer-Encoding: 8bit
 Testbody
 MAIL;
 
+    /**
+     * Set up
+     */
     public function setUp()
     {
         $this->partFactory = $this->getMock('Lasso\MailParserBundle\PartFactory');

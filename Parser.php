@@ -112,6 +112,9 @@ class Parser
      * closing boundary is missing.
      *
      * Then append the boundary and re-parse the email.
+     *
+     * @param Part   $part
+     * @param string $rawMailBody
      */
     public function workAroundMissingBoundary(Part $part, $rawMailBody)
     {
@@ -569,7 +572,7 @@ class Parser
      * The confusing zend API makes a custom function for
      * header checking necessary.
      *
-     * @param Part $part
+     * @param Part   $part
      * @param string $header
      *
      * @return bool
@@ -634,7 +637,7 @@ class Parser
     /**
      * Prepares an encoding name for lookup with php's internal functions
      *
-     * @param $name
+     * @param string $name
      *
      * @return string
      */

@@ -22,7 +22,11 @@ namespace Lasso\MailParserBundle;
 
 use Symfony\Component\HttpKernel\Bundle\Bundle;
 
-
+/**
+ * Class LassoMailParserBundle
+ *
+ * @package Lasso\MailParserBundle
+ */
 class LassoMailParserBundle extends Bundle
 {
 }
