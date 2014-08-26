@@ -123,7 +123,7 @@ class Parser
         } catch (RuntimeException $e) {
             if (count($part->getHeaders()) > 0
                 && $part->getHeaders()->has('Content-Type')
-                && array_key_exists('boundary', $part->getHeaders()->get('Content-Type')->getParameters())
+                && array_key_exists('boundary', $this->getContentType($part)->getParameters())
             ) {
                 $boundary = $part
                     ->getHeaders()
