@@ -206,6 +206,20 @@ MAIL;
     /**
      * @test
      */
+    public function reusingParserShouldNotPersistEnvelopedState()
+    {
+        $mailBodyEnveloped = file_get_contents(__DIR__ . '/example_emails/microsoft_365_journaling.txt');
+        $mailBody          = file_get_contents(__DIR__ . '/example_emails/quoted_printable_html.txt');
+
+        $parser = $this->getParser(new PartFactory());
+        $parser->parse($mailBodyEnveloped);
+        $parser->parse($mailBody);
+        $this->assertTrue(!$parser->hasEnvelopedEmail());
+    }
+
+    /**
+     * @test
+     */
     public function primaryBodyFromMultiPartEmail()
     {
         $mailBody = <<<MAIL

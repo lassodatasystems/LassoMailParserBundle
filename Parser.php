@@ -82,8 +82,19 @@ class Parser
     public function __construct(PartFactory $partFactory)
     {
         $this->partFactory = $partFactory;
+        $this->reset();
+    }
 
+    /**
+     * Resets the parser to a newly constructed state.
+     */
+    private function reset()
+    {
         $this->knownCharsets = array_map([$this, 'prepareEncodingName'], mb_list_encodings());
+        $this->problematicParts = [];
+        $this->envelopedEmail = null;
+        $this->parts = [];
+        $this->mail = null;
     }
 
     /**
@@ -94,6 +105,8 @@ class Parser
      */
     public function parse($mail)
     {
+        $this->reset();
+
         $this->mail = $this->partFactory->getPart($mail);
 
         $this->workAroundMissingBoundary($this->mail, $mail);
