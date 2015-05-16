@@ -20,6 +20,7 @@
  */
 namespace Lasso\MailParserBundle\Tests\Unit;
 
+use Lasso\MailParserBundle\ParsedMail;
 use Lasso\MailParserBundle\PartFactory;
 use Lasso\MailParserBundle\Parser;
 use PHPUnit_Framework_TestCase;
@@ -85,9 +86,10 @@ MAIL;
             ->will($this->returnValue($partMock));
 
         $parser = $this->getParser($partFactoryMock);
-        $parser->parse('From: someone@example.com');
+        /** @var ParsedMail $parsedMail */
+        $parsedMail = $parser->parse('From: someone@example.com');
 
-        $this->assertAttributeEquals($partMock, 'mail', $parser);
+        $this->assertAttributeEquals($partMock, 'mail', $parsedMail);
     }
 
     /**
@@ -109,9 +111,10 @@ MAIL;
             ->will($this->returnValue($partMock));
 
         $parser = $this->getParser($partFactoryMock);
-        $parser->parse('From: someone@example.com');
+        /** @var ParsedMail $parsedMail */
+        $parsedMail = $parser->parse('From: someone@example.com');
 
-        $mail = $parser->getMail();
+        $mail = $parsedMail->getMail();
 
         $this->assertEquals($partMock, $mail);
     }
@@ -123,9 +126,10 @@ MAIL;
     {
         $partFactory = new PartFactory();
         $parser      = $this->getParser($partFactory);
-        $parser->parse($this->mailBody);
+        /** @var ParsedMail $parsedMail */
+        $parsedMail = $parser->parse($this->mailBody);
 
-        $addressesFromEmail = $parser->getAllEmailAddresses();
+        $addressesFromEmail = $parsedMail->getAllEmailAddresses();
         $shouldBePresent    = [
             'a@example.com',
             'b@example.com',
@@ -144,9 +148,10 @@ MAIL;
     {
         $partFactory = new PartFactory();
         $parser      = $this->getParser($partFactory);
-        $parser->parse($this->mailBody);
+        /** @var ParsedMail $parsedMail */
+        $parsedMail = $parser->parse($this->mailBody);
 
-        $addressesFromEmail = $parser->getAllEmailAddresses(['to', 'bcc']);
+        $addressesFromEmail = $parsedMail->getAllEmailAddresses(['to', 'bcc']);
         $shouldBePresent    = [
             'b@example.com',
             'd@example.com',
@@ -197,10 +202,26 @@ AAEAAAAPADAAAwDAT1MvMlFBXLsAAYF0AAAAVlBDTFRLxMEKAAGBzAAAADZjbWFwXFxQcgABdkQA
 --047d7bb03b8e84404004d84b538e--
 MAIL;
         $parser = $this->getParser(new PartFactory());
-        $parser->parse($mailBody);
+        /** @var ParsedMail $parsedMail */
+        $parsedMail = $parser->parse($mailBody);
 
-        $content = $parser->getPrimaryContent();
+        $content = $parsedMail->getPrimaryContent();
         $this->assertEquals('<div>This is the html body<b>with styling</b></div>', $content);
+    }
+
+    /**
+     * @test
+     */
+    public function reusingParserShouldNotPersistEnvelopedState()
+    {
+        $mailBodyEnveloped = file_get_contents(__DIR__ . '/example_emails/microsoft_365_journaling.txt');
+        $mailBody          = file_get_contents(__DIR__ . '/example_emails/quoted_printable_html.txt');
+
+        $parser = $this->getParser(new PartFactory());
+        $parser->parse($mailBodyEnveloped);
+        /** @var ParsedMail $parsedMail */
+        $parsedMail = $parser->parse($mailBody);
+        $this->assertTrue(!$parsedMail->hasEnvelopedEmail());
     }
 
     /**
@@ -235,9 +256,10 @@ AAEAAAAPADAAAwDAT1MvMlFBXLsAAYF0AAAAVlBDTFRLxMEKAAGBzAAAADZjbWFwXFxQcgABdkQA
 --047d7bb03b8e84404004d84b538e--
 MAIL;
         $parser = $this->getParser(new PartFactory());
-        $parser->parse($mailBody);
+        /** @var ParsedMail $parsedMail */
+        $parsedMail = $parser->parse($mailBody);
 
-        $content = $parser->getPrimaryContent();
+        $content = $parsedMail->getPrimaryContent();
         $this->assertEquals('This is the text body* with styling*', $content);
     }
 
@@ -260,9 +282,10 @@ X-Attachment-Id: f_hehegkyx0
 AAEAAAAPADAAAwDAT1MvMlFBXLsAAYF0AAAAVlBDTFRLxMEKAAGBzAAAADZjbWFwXFxQcgABdkQA
 MAIL;
         $parser = $this->getParser(new PartFactory());
-        $parser->parse($mailBody);
+        /** @var ParsedMail $parsedMail */
+        $parsedMail = $parser->parse($mailBody);
 
-        $content = $parser->getPrimaryContent();
+        $content = $parsedMail->getPrimaryContent();
         $this->assertEquals(null, $content);
     }
 
@@ -314,8 +337,9 @@ Content-Type: text/html
 
 MAIL;
         $parser = $this->getParser(new PartFactory());
-        $parser->parse($mailBody);
-        $content = $parser->getPrimaryContent($this->makeGlue());
+        /** @var ParsedMail $parsedMail */
+        $parsedMail = $parser->parse($mailBody);
+        $content = $parsedMail->getPrimaryContent($this->makeGlue());
 
         $this->assertEquals($parts[0] . '<hr />' . $parts[1], $content);
     }
@@ -357,8 +381,9 @@ Content-Type: text/plain
 
 MAIL;
         $parser = $this->getParser(new PartFactory());
-        $parser->parse($mailBody);
-        $content = $parser->getPrimaryContent($this->makeGlue());
+        /** @var ParsedMail $parsedMail */
+        $parsedMail = $parser->parse($mailBody);
+        $content = $parsedMail->getPrimaryContent($this->makeGlue());
 
         $this->assertEquals($parts[0] . "\n=====\n" . $parts[1], $content);
     }
@@ -379,8 +404,9 @@ Content-Type: text/plain; charset=ISO-8859-1
 This is the text body* with styling*
 MAIL;
         $parser = $this->getParser(new PartFactory());
-        $parser->parse($mailBody);
-        $content = $parser->getPrimaryContent();
+        /** @var ParsedMail $parsedMail */
+        $parsedMail = $parser->parse($mailBody);
+        $content = $parsedMail->getPrimaryContent();
 
         $this->assertEquals('This is the text body* with styling*', $content);
     }
@@ -393,8 +419,9 @@ MAIL;
         $mailBody = file_get_contents(__DIR__ . '/example_emails/quoted_printable_html.txt');
 
         $parser = $this->getParser(new PartFactory());
-        $parser->parse($mailBody);
-        $content = $parser->getPrimaryContent();
+        /** @var ParsedMail $parsedMail */
+        $parsedMail = $parser->parse($mailBody);
+        $content = $parsedMail->getPrimaryContent();
 
         $this->assertEquals('<html><head><meta http-equiv="Content-Type" content="text/html charset=us-ascii"></head><body style="word-wrap: break-word; -webkit-nbsp-mode: space; -webkit-line-break: after-white-space; ">simple html test</body></html>', $content);
     }
@@ -407,8 +434,9 @@ MAIL;
         $mailBody = file_get_contents(__DIR__ . '/example_emails/microsoft_365_journaling.txt');
 
         $parser = $this->getParser(new PartFactory());
-        $parser->parse($mailBody);
-        $content = $parser->getPrimaryContent();
+        /** @var ParsedMail $parsedMail */
+        $parsedMail = $parser->parse($mailBody);
+        $content = $parsedMail->getPrimaryContent();
 
         $this->assertEquals('<span>full html</span>', $content);
     }
@@ -421,9 +449,9 @@ MAIL;
         $mailBody = file_get_contents(__DIR__ . '/example_emails/microsoft_365_journaling.txt');
 
         $parser = $this->getParser(new PartFactory());
-        $parser->parse($mailBody);
-        $emails = $parser->getAllEmailAddresses();
-
+        /** @var ParsedMail $parsedMail */
+        $parsedMail = $parser->parse($mailBody);
+        $emails = $parsedMail->getAllEmailAddresses();
         sort($emails);
 
         $this->assertEquals(['someone@example.com', 'spring@example.com', 'springs_colleague@example.com'], $emails);
@@ -437,11 +465,12 @@ MAIL;
         $mailBody = file_get_contents(__DIR__ . '/example_emails/microsoft_365_journaling.txt');
 
         $parser = $this->getParser(new PartFactory());
-        $parser->parse($mailBody);
+        /** @var ParsedMail $parsedMail */
+        $parsedMail = $parser->parse($mailBody);
 
-        $this->assertTrue($parser->hasEnvelopedEmail());
+        $this->assertTrue($parsedMail->hasEnvelopedEmail());
 
-        $this->assertEquals('Mon, 12 Feb 2012 23:01:45 +0000', $parser->getEnvelopedEmail()->date);
+        $this->assertEquals('Mon, 12 Feb 2012 23:01:45 +0000', $parsedMail->getEnvelopedEmail()->date);
     }
 
     /**
@@ -452,8 +481,9 @@ MAIL;
         $mailBody = file_get_contents(__DIR__ . '/example_emails/ndr.txt');
 
         $parser = $this->getParser(new PartFactory());
-        $parser->parse($mailBody);
-        $parser->getPrimaryContent();
+        /** @var ParsedMail $parsedMail */
+        $parsedMail = $parser->parse($mailBody);
+        $parsedMail->getPrimaryContent();
     }
 
     /**
@@ -464,8 +494,9 @@ MAIL;
         $mailBody = file_get_contents(__DIR__ . '/example_emails/quoted_printable_html.txt');
 
         $parser = $this->getParser(new PartFactory());
-        $parser->parse($mailBody);
-        $loggingEmails = $parser->getLoggingEmails();
+        /** @var ParsedMail $parsedMail */
+        $parsedMail = $parser->parse($mailBody);
+        $loggingEmails = $parsedMail->getLoggingEmails();
 
         $this->assertContains('74111298-6423-2943-9875-39906A7EA733@example.com', $loggingEmails);
     }
@@ -478,8 +509,9 @@ MAIL;
         $mailBody = file_get_contents(__DIR__ . '/example_emails/multiple_message_ids.txt');
 
         $parser = $this->getParser(new PartFactory());
-        $parser->parse($mailBody);
-        $loggingEmails = $parser->getLoggingEmails();
+        /** @var ParsedMail $parsedMail */
+        $parsedMail = $parser->parse($mailBody);
+        $loggingEmails = $parsedMail->getLoggingEmails();
 
         $this->assertContains('74111298-6423-2943-9875-39906A7EA733@example.com', $loggingEmails);
         $this->assertContains('second-message-id@example.com', $loggingEmails);
@@ -493,9 +525,10 @@ MAIL;
         $mailBody = file_get_contents(__DIR__ . '/example_emails/missing_boundary.txt');
 
         $parser = $this->getParser(new PartFactory());
-        $parser->parse($mailBody);
+        /** @var ParsedMail $parsedMail */
+        $parsedMail = $parser->parse($mailBody);
 
-        $this->assertContains('simple html test', $parser->getPrimaryContent());
+        $this->assertContains('simple html test', $parsedMail->getPrimaryContent());
     }
 
     /**
@@ -506,9 +539,10 @@ MAIL;
         $mailBody = file_get_contents(__DIR__ . '/example_emails/chinese.txt');
 
         $parser = $this->getParser(new PartFactory());
-        $parser->parse($mailBody);
+        /** @var ParsedMail $parsedMail */
+        $parsedMail = $parser->parse($mailBody);
 
-        $this->assertContains('而幫助客戶從車輛碰撞後低落的情緒中重拾信心', $parser->getPrimaryContent());
+        $this->assertContains('而幫助客戶從車輛碰撞後低落的情緒中重拾信心', $parsedMail->getPrimaryContent());
     }
 
     /**
@@ -519,9 +553,10 @@ MAIL;
         $mailBody = file_get_contents(__DIR__ . '/example_emails/broken_charset.txt');
 
         $parser = $this->getParser(new PartFactory());
-        $parser->parse($mailBody);
+        /** @var ParsedMail $parsedMail */
+        $parsedMail = $parser->parse($mailBody);
 
-        $this->assertContains('EINS ZWEI DREI', $parser->getPrimaryContent());
+        $this->assertContains('EINS ZWEI DREI', $parsedMail->getPrimaryContent());
     }
 
     /**
@@ -532,8 +567,9 @@ MAIL;
         $mailBody = file_get_contents(__DIR__ . '/example_emails/multiple_transfer_encoding_headers_present.txt');
 
         $parser = $this->getParser(new PartFactory());
-        $parser->parse($mailBody);
+        /** @var ParsedMail $parsedMail */
+        $parsedMail = $parser->parse($mailBody);
 
-        $this->assertContains('simple html test', $parser->getPrimaryContent());
+        $this->assertContains('simple html test', $parsedMail->getPrimaryContent());
     }
 }
