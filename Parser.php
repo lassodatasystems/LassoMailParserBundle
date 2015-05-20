@@ -21,9 +21,7 @@
 namespace Lasso\MailParserBundle;
 
 use ArrayIterator;
-use Exception;
-use LogicException;
-use UnexpectedValueException;
+use Lasso\MailParserBundle\PartTree\PartTreeFactory;
 use Zend\Mail\Header\AbstractAddressList;
 use Zend\Mail\Header\HeaderInterface;
 use Zend\Mail\Storage\Part;
@@ -33,48 +31,12 @@ use Zend\Mime\Exception\RuntimeException;
  * Provides a very simple wrapper around the zend mail library. Contains assorted helper functions regarding mail
  * processing.
  */
-class Parser
+class Parser extends ParseHelper
 {
-    /**
-     * @var Part
-     */
-    protected $mail = null;
-
-    /**
-     * Linear array of all parts in the email. The parts of enveloped emails will also be in here
-     *
-     * @var Part[]
-     */
-    protected $parts = [];
-
     /**
      * @var PartFactory
      */
-    protected $partFactory;
-
-    /**
-     * @var Part
-     */
-    protected $envelopedEmail;
-
-    /**
-     * @var Array
-     */
-    protected $knownCharsets;
-
-    /**
-     * Keeps a list of parts that produced charset problems while decoding the body
-     *
-     * @var array
-     */
-    protected $problematicParts = [];
-
-    /**
-     * Identifies exception for unknown charsets
-     *
-     * @var int
-     */
-    const INVALID_CHARSET_ERROR_CODE = 525;
+    private $partFactory;
 
     /**
      * @param PartFactory $partFactory
@@ -82,8 +44,6 @@ class Parser
     public function __construct(PartFactory $partFactory)
     {
         $this->partFactory = $partFactory;
-
-        $this->knownCharsets = array_map([$this, 'prepareEncodingName'], mb_list_encodings());
     }
 
     /**
@@ -91,14 +51,39 @@ class Parser
      * are available.
      *
      * @param string $mail
+     * @return ParsedMail
      */
     public function parse($mail)
     {
-        $this->mail = $this->partFactory->getPart($mail);
+        // Initial
+        /** @var Part $mailPart */
+        $mailPart = $this->workAroundMissingBoundary(
+            $this->partFactory->getPart($mail),
+            $mail
+        );
 
-        $this->workAroundMissingBoundary($this->mail, $mail);
+        $partTreeFactory = new PartTreeFactory($this->partFactory);
+        $partTree = $partTreeFactory->make($mailPart);
 
-        $this->parts = $this->flattenParts($this->mail);
+        /** @var Part[] $parts */
+        $parts = $partTree->flattenParts();
+
+        /** @var Part $envelopedEmail */
+        $envelopedEmail = $partTree->getEnvelopedEmail();
+
+        // Everything else
+        $loggingEmails = $this->getLoggingEmails($mailPart, $parts);
+        // All email addresses as a hash in the form $allEmailAddressesByField[field] = [];
+        $allEmailAddressesByField = $this->getAllEmailAddresses($parts);
+
+        return new ParsedMail(
+            $mail,
+            $mailPart,
+            $parts,
+            $loggingEmails,
+            $allEmailAddressesByField,
+            $envelopedEmail
+        );
     }
 
     /**
@@ -115,11 +100,12 @@ class Parser
      *
      * @param Part   $part
      * @param string $rawMailBody
+     * @return Part
      */
-    public function workAroundMissingBoundary(Part $part, $rawMailBody)
+    private function workAroundMissingBoundary(Part $part, $rawMailBody)
     {
         try {
-            $this->mail->countParts();
+            $part->countParts();
         } catch (RuntimeException $e) {
             if (count($part->getHeaders()) > 0
                 && $part->getHeaders()->has('Content-Type')
@@ -133,105 +119,32 @@ class Parser
                 $content = trim($rawMailBody);
                 $content .= "\n--{$boundary}--";
 
-                $this->mail = $this->partFactory->getPart($content);
-            }
-        }
-    }
-
-    /**
-     * Returns the mail object. $this->parse() has to be called before this function is available.
-     *
-     * @return null|Part
-     * @throws LogicException
-     */
-    public function getMail()
-    {
-        if (empty($this->mail)) {
-            throw new LogicException('You must first call $this->parse()');
-        }
-
-        return $this->mail;
-    }
-
-    /**
-     * Retrieves the addresses from a specific field in a part
-     *
-     * @param string $field
-     * @param Part   $part
-     *
-     * @return array
-     */
-    protected function getAddressesFromFieldInPart($field, Part $part)
-    {
-        $addresses = [];
-
-        $headers = $part->getHeaders();
-        if (empty($headers)) {
-            return $addresses;
-        }
-
-        if (!$headers->has($field)) {
-            return $addresses;
-        }
-
-        $addressList = $part->getHeader($field);
-        if (!$addressList instanceof AbstractAddressList) {
-            return $addresses;
-        }
-
-        foreach ($addressList->getAddressList() as $address) {
-            $addresses[] = strtolower($address->getEmail());
-        }
-
-        return $addresses;
-    }
-
-    /**
-     * Returns all email addresses contained in the email headers. This includes, to, from, cc, and bcc.
-     * $this->parse() has to be called before this function is available.
-     *
-     * @param array $fields
-     *
-     * @throws \LogicException
-     * @return array
-     */
-    public function getAllEmailAddresses($fields = ['to', 'from', 'cc', 'bcc'])
-    {
-        if (empty($this->mail)) {
-            throw new LogicException('You must first call $this->parse()');
-        }
-
-        $parts = array_merge([$this->mail], $this->parts);
-
-        $addresses = [];
-        foreach ($fields as $field) {
-            foreach ($parts as $part) {
-                $addresses = array_merge($addresses, $this->getAddressesFromFieldInPart($field, $part));
+                $part = $this->partFactory->getPart($content);
             }
         }
 
-        $addresses = array_unique($addresses);
-
-        return $addresses;
+        return $part;
     }
+
+
 
     /**
      * Returns a list of all emails in the parser, including
      * the message id. This is mostly useful for logging.
      *
+     * @param Part   $mail
+     * @param Part[] $parts
+     *
      * @return array
-     * @throws \LogicException
      */
-    public function getLoggingEmails()
+    private function getLoggingEmails($mail, $parts)
     {
-        if (empty($this->mail)) {
-            throw new LogicException('You must first call $this->parse()');
-        }
-
-        $emailAddresses = $this->getAllEmailAddresses();
+        $emailAddresses = $this->flattenEmailAddresses(
+            $this->getAllEmailAddresses($parts)
+        );
 
         $messageIds = [];
-        $headers    = $this->mail->getHeaders();
+        $headers    = $mail->getHeaders();
         if (!empty($headers) && $headers->has('message-id')) {
             $messageId = $headers->get('message-id');
             if ($messageId instanceof ArrayIterator) {
@@ -255,394 +168,80 @@ class Parser
     }
 
     /**
-     * If the email contained an enveloped email, this method will provide the enveloped email. It can
-     * then be used to extract information about the original exchange.
+     * Takes the hash of email address and the field they were found in and
+     * returns a flattened array of those email addresses.
      *
-     * @return Part
+     * @param $emailAddressesByField
+     *
+     * @return array
      */
-    public function getEnvelopedEmail()
-    {
-        return $this->envelopedEmail;
-    }
-
-    /**
-     * Check whether an enveloped email was found
-     *
-     * @return bool
-     */
-    public function hasEnvelopedEmail()
-    {
-        return !empty($this->envelopedEmail);
-    }
-
-    /**
-     * @param Part $part
-     *
-     * @return bool
-     */
-    protected function isEnvelopedEmail(Part $part)
-    {
-        if (!$this->hasHeader($part, 'Content-Type')) {
-            return false;
-        }
-
-        return $this->getContentType($part)->getType() == 'message/rfc822';
-    }
-
-    /**
-     * Returns all parts that had charset problems while decoding the content
-     *
-     * @return Part[]
-     */
-    public function getProblematicParts()
-    {
-        return $this->problematicParts;
-    }
-
-    /**
-     * Check if there were any parts with charset problems
-     *
-     * @return bool
-     */
-    public function hasProblematicParts()
-    {
-        return !empty($this->problematicParts);
-    }
-
-    /**
-     * Concatenates all the parts of an email. Will concatenate
-     * html if there were html parts, else the text parts
-     * are concatenated. Will not return any other parts (such as file attachments).
-     *
-     * The callable $glue, if given, will be called when
-     * concatenating parts like this:
-     *
-     * $partOne . $glue($contentType) . $partTwo
-     *
-     * $glue needs to return a string. Using a functions allows to
-     * return different values for different content types, e.g. <hr />
-     * for html content.
-     *
-     * The content type of the parts will be passed in, like "text/html"
-     * or "text/plain".
-     *
-     * @param callable $glue
-     *
-     * @return null|string
-     */
-    public function getPrimaryContent(Callable $glue = null)
-    {
-        /*
-         * Simple no-op function. No if-statements necessary later.
-         */
-        if (empty($glue)) {
-            $glue = function () {
-                return '';
-            };
-        }
-
-        if ($this->getMail()->isMultipart()) {
-            $parts = $this->parts;
-        } else {
-            $parts = [$this->getMail()];
-        }
-
-        $textContent = [];
-        $htmlContent = [];
-
-        foreach ($parts as $part) {
-            $contentType = 'text/plain';
-
-            if ($this->hasHeader($part, 'Content-Type')) {
-                $contentType = $this
-                    ->getContentType($part)
-                    ->getType();
-            }
-
-            try {
-                if ($contentType == 'text/plain') {
-                    $textContent[] = $this->decodeBody($part);
-                }
-                if ($contentType == 'text/html') {
-                    $htmlContent[] = $this->decodeBody($part);
-                }
-            } catch (UnexpectedValueException $exception) {
-                if ($exception->getCode() == self::INVALID_CHARSET_ERROR_CODE) {
-                    $this->problematicParts[] = $part;
-
-                    /*
-                     * Couldn't convert content, in all likelihood can't work with it, so
-                     * return an empty string
-                     */
-                    return "";
-                }
+    private function flattenEmailAddresses($emailAddressesByField) {
+        $flattened = [];
+        foreach ($emailAddressesByField as $field => $emailAddresses) {
+            foreach ($emailAddresses as $emailAddress) {
+                $flattened[] = $emailAddress;
             }
         }
 
-        /**
-         * Takes an array of parts and combines them with the glue
-         * function. With a foreach loop, there's a need to track
-         * whether the current part is the last part so $glue isn't
-         * called after the last part.
-         *
-         * Using array_reduce() makes the last-part-tracking unnecessary.
-         *
-         * @param $parts
-         * @param $contentType
-         *
-         * @return mixed
-         */
-        $combineParts = function ($parts, $contentType) use ($glue) {
-            $first = array_shift($parts);
-
-            return array_reduce(
-                $parts,
-                function ($soFar, $part) use ($glue, $contentType) {
-                    return $soFar . $glue($contentType) . $part;
-                },
-                $first
-            );
-        };
-
-        if (!empty($htmlContent)) {
-            return $combineParts($htmlContent, 'text/html');
-        }
-
-        if (!empty($textContent)) {
-            return $combineParts($textContent, 'text/plain');
-        }
-
-        return null;
+        return array_unique($flattened);
     }
 
     /**
-     * @param Part $part
+     * Returns all email addresses contained in the email headers. This includes, to, from, cc, and bcc.
      *
-     * @return string
-     * @throws \UnexpectedValueException
+     * @param Part[] $parts
+     * @param array  $fields
+     *
+     * @return array
      */
-    private function decodeBody(Part $part)
+    private function getAllEmailAddresses($parts, $fields = ['to', 'from', 'cc', 'bcc'])
     {
-        $content = '';
-
-        $contentTransferEncoding = '7-bit';
-        $contentCharset = 'auto';
-        $headers                 = $part->getHeaders();
-        if (!empty($headers)) {
-            if ($headers->has('Content-Transfer-Encoding')) {
-                $contentTransferEncodingHeader = $headers->get('Content-Transfer-Encoding');
-                if (is_a($contentTransferEncodingHeader, 'ArrayIterator')) {
-                    /*
-                     * Multiple transfer encoding headers don't really make sense and are
-                     * indicative of a malformed message. Just choose the first one and hope
-                     * it works.
-                     */
-                    $contentTransferEncodingHeader = $headers->get('Content-Transfer-Encoding')[0];
-                }
-
-                $contentTransferEncoding = $contentTransferEncodingHeader->getFieldValue();
+        $addresses = [];
+        foreach ($fields as $field) {
+            $addressesPerField = [];
+            foreach ($parts as $part) {
+                 $addressesPerField = array_merge(
+                     $addressesPerField,
+                     $this->getAddressesFromFieldInPart($field, $part)
+                 );
             }
-
-            if ($this->hasHeader($part, 'Content-Type')) {
-                $newContentCharset = $this
-                    ->getContentType($part)
-                    ->getParameter('charset');
-
-
-                if (!empty($newContentCharset)
-                    && in_array($this->prepareEncodingName($newContentCharset), $this->knownCharsets)
-                ) {
-                    $contentCharset = $newContentCharset;
-                }
-            }
+            $addresses[$field] = $addressesPerField;
         }
 
-        switch ($contentTransferEncoding) {
-            case 'base64':
-                $content = base64_decode($part->getContent());
-                break;
-
-            case 'quoted-printable':
-                $content = quoted_printable_decode($part->getContent());
-                break;
-
-            default:
-                try {
-                    $content = $part->getContent();
-                } catch (Exception $e) {
-                    /*
-                     * do nothing, email has not content, there is not function
-                     * to check if the email is empty and $content is already
-                     * set to an empty string
-                     */
-                }
-
-                break;
-        }
-
-        /*
-         * mb_convert_encoding might produce warnings/error if the $contentCharset is wrong.
-         * mb_check_encoding for some reason doesn't fail those cases, so there's no way
-         * to check if the encoding is correct.
-         *
-         * Using a custom error handler allows marking the part as problematic when
-         * mb_convert_encoding produces a warning, while preventing a php-internal warning.
-         *
-         * This way, log files won't get cluttered and there's an easy way to deal with the
-         * problematic parts.
-         */
-        $hasError = false;
-
-        set_error_handler(function($errorLevel, $errorMessage) use (&$hasError) {
-            $hasError = true;
-
-            return true;
-        }, E_ALL);
-
-        $convertedContent = mb_convert_encoding($content, 'UTF-8', $contentCharset);
-
-        restore_error_handler();
-
-        if ($hasError) {
-            throw new UnexpectedValueException('Content: ' . $content, Parser::INVALID_CHARSET_ERROR_CODE);
-        }
-
-        return trim($convertedContent);
+        return $addresses;
     }
 
     /**
-     * @param Part $part
+     * Retrieves the addresses from a specific field in a part
      *
-     * @return Part[]
-     */
-    protected function flattenParts(Part $part)
-    {
-        $parts = [];
-
-        /*
-         * $part->countParts(); can throw an error if the headers are missing.
-         * Return an empty array if the headers are indeed missing.
-         */
-        if (count($part->getHeaders()) === 0) {
-            return $parts;
-        }
-
-        try {
-            $partCount = $part->countParts();
-        } catch (Exception $e) {
-            return $parts;
-        }
-
-        for ($i = 1; $i <= $partCount; ++$i) {
-            $newPart = $part->getPart($i);
-
-            if (count($newPart->getHeaders()) === 0) {
-                continue;
-            }
-
-            if ($newPart->isMultipart()) {
-                $parts = array_merge($parts, $this->flattenParts($newPart));
-            } elseif ($this->isEnvelopedEmail($newPart)) {
-                $newPart = $this->partFactory->getPart($newPart->getContent());
-
-                /*
-                 * This should be somewhere else, but:
-                 * The parsed part has content-type 'multipart/alternative'.
-                 * The parent part has 'message/rfc822', but relations between
-                 * parts are not tracked. Therefore, I can't identify this
-                 * part as the enveloped part anywhere but here.
-                 *
-                 * The parts should be in a tree structure, then it would be
-                 * simple to identify this email after all parts were parsed.
-                 */
-                $this->envelopedEmail = $newPart;
-
-                $parts[] = $newPart;
-
-                $parts = array_merge($parts, $this->flattenParts($newPart));
-            } else {
-                $parts[] = $newPart;
-            }
-        }
-
-        return $parts;
-    }
-
-    /**
-     * The confusing zend API makes a custom function for
-     * header checking necessary.
-     *
+     * @param string $field
      * @param Part   $part
-     * @param string $header
      *
-     * @return bool
+     * @return array
      */
-    protected function hasHeader(Part $part, $header)
+    private function getAddressesFromFieldInPart($field, Part $part)
     {
-        if (count($part->getHeaders()) < 1) {
-            return false;
+        $addresses = [];
+
+        $headers = $part->getHeaders();
+        if (empty($headers)) {
+            return $addresses;
         }
 
-        return $part
-            ->getHeaders()
-            ->has($header);
-    }
-
-    /**
-     * Returns the content type of the given part. Since zends API
-     * allows for four different return values, we need to handle
-     * every type differently. Multiple content-type headers can't
-     * be accounted for, in those cases we simply take the first
-     * one and hope for the best. If it doesn't work, there's not
-     * much that could be done as content-type guessing is not an
-     * easily solved problem.
-     *
-     * The content-type header should always be broken up into
-     * a header interface, it just could happen that the zend
-     * framework returns an array or array iterator when multiple
-     * content-type headers are present. In that case, the first
-     * encountered header will be used.
-     *
-     * @param Part $part
-     *
-     * @return HeaderInterface
-     * @throws \Exception
-     */
-    protected function getContentType(Part $part)
-    {
-        if (!$this->hasHeader($part, 'Content-Type')) {
-            throw new Exception('This email does not have a content type. Check for that with hasContentType()');
+        if (!$headers->has($field)) {
+            return $addresses;
         }
 
-        $zendContentType = $part
-            ->getHeaders()
-            ->get('Content-Type');
-
-        switch (true) {
-            case is_array($zendContentType):
-                return $zendContentType[0];
-            case $zendContentType instanceof HeaderInterface:
-                return $zendContentType;
-            case $zendContentType instanceof ArrayIterator:
-                return $zendContentType->current();
-            default:
-                throw new Exception('Unexpected return type ' .
-                    gettype($zendContentType) .
-                    ', expected one of string, array, HeaderInterface or ArrayIterator' .
-                    ' from Part::getHeaders()::get("Content-Type"))'
-                );
+        /** @var AbstractAddressList $addressList */
+        $addressList = $part->getHeader($field);
+        if (!$addressList instanceof AbstractAddressList) {
+            return $addresses;
         }
-    }
 
-    /**
-     * Prepares an encoding name for lookup with php's internal functions
-     *
-     * @param string $name
-     *
-     * @return string
-     */
-    protected function prepareEncodingName($name)
-    {
-        return strtolower(preg_replace('/[^a-z0-9]/i', '', $name));
+        foreach ($addressList->getAddressList() as $address) {
+            $addresses[] = strtolower($address->getEmail());
+        }
+
+        return $addresses;
     }
 }
