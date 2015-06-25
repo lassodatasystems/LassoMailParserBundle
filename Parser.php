@@ -22,6 +22,7 @@ namespace Lasso\MailParserBundle;
 
 use ArrayIterator;
 use Lasso\MailParserBundle\PartTree\PartTreeFactory;
+use Zend\Mail\Exception\InvalidArgumentException;
 use Zend\Mail\Header\AbstractAddressList;
 use Zend\Mail\Header\HeaderInterface;
 use Zend\Mail\Storage\Part;
@@ -233,7 +234,14 @@ class Parser extends ParseHelper
         }
 
         /** @var AbstractAddressList $addressList */
-        $addressList = $part->getHeader($field);
+        $addressList = null;
+
+        try {
+            $addressList = $part->getHeader($field);
+        } catch (InvalidArgumentException $e) {
+            return $addresses;
+        }
+
         if (!$addressList instanceof AbstractAddressList) {
             return $addresses;
         }
