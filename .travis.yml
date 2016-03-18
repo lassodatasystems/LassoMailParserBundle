@@ -2,6 +2,9 @@ language: php
 php:
     - 5.4
 
+notifications:
+  slack: lassocrm:VbRvwEDH85u2i44OBcL3vBMO
+
 before_script:
     composer install --dev
 
